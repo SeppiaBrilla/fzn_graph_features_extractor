@@ -1,0 +1,12 @@
+name = "FlatzincToGraph"
+uuid = "6ea5acb2-633c-473f-8148-2c2fe4b1a296"
+version = "0.1.0"
+authors = ["alessio <alessio@imada.sdu.dk>"]
+
+[deps]
+Parsers = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[compat]
+Parsers = "2.8.6"
+UUIDs = "1.11.0"
