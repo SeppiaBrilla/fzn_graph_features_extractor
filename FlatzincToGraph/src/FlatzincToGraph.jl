@@ -26,3 +26,12 @@ function julia_main()::Cint
 end
 
 end
+# =====================================================================
+# 3. Entry point for Script Execution (e.g., `julia src/FlatzincToGraph.jl`)
+# =====================================================================
+# This block only runs if the file is executed directly as a script.
+# It is skipped during package loading or compilation.
+if abspath(PROGRAM_FILE) == @__FILE__
+    # Call the main function with command-line arguments and exit with the correct code
+    FlatzincToGraph.run_program(ARGS)
+end

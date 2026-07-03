@@ -1,5 +1,6 @@
 module Constraints
 
+using Base: normalize_depots_for_relocation
 include("graph/decompose_int.jl")
 include("graph/decompose_bool.jl")
 include("graph/decompose_set.jl")
@@ -13,40 +14,44 @@ using .DecomposeIntConstraints
 using .DecomposeBoolConstraints
 using .DecomposeSetConstraints
 using .DecomposeGlobalConstraints
+using ..GraphHelper
 
 function is_constraint_line(line::String)
     return startswith(line, "constraint")
 end
 
-function to_val(val::String, vars::IdDict{String,Variable}, parameters::IdDict{String,Parameter})
+function to_val(val::String, vars::IdDict{String,Variable}, parameters::IdDict{String,Parameter}, graph::Graph, normalize::Bool)::Union{Node,Vector{Node}}
     key = intern(val)
     if haskey(vars, key)
-        return vars[key]
+        return get_node_for_val(graph, vars[key])
     end
     if haskey(parameters, key)
-        return parameters[key]
+        if parameters[key].type.is_array && normalize
+            return [get_node_for_val(graph, p) for p in normalize_list(parameters[key])]
+        end
+        return get_node_for_val(graph, parameters[key])
     end
-    return val
+    return get_node_for_val(graph, val, Helper.get_type(val))
 end
 
 
-function decompose_parameters(components::AbstractString, vars::IdDict{String,Variable}, parameters::IdDict{String,Parameter})::Vector{Union{Any,Vector{Any}}}
-    constraint_parameters::Vector{Union{Any,Vector{Any}}} = []
+function decompose_parameters(components::AbstractString, vars::IdDict{String,Variable}, parameters::IdDict{String,Parameter}, graph::Graph, normalize::Bool)::Vector{Union{Vector{Node},Node}}
+    constraint_parameters::Vector{Union{Vector{Node},Node}} = []
     components = replace(components, " " => "")
     while length(components) > 0
         if components[1] == '[' #it is an array
             array_end = only(findfirst("]", components))
             param = components[2:array_end-1]
             if param != ""
-                push!(constraint_parameters, [to_val(String(val), vars, parameters) for val in split(param, ",")])
+                push!(constraint_parameters, [to_val(String(val), vars, parameters, graph, false) for val in split(param, ",")])
             else
-                push!(constraint_parameters, [])
+                push!(constraint_parameters, Node[])
             end
             components = components[array_end+2:end]
         elseif components[1] == '{'
             set_end = only(findfirst('}', components))
             param = components[1:set_end]
-            push!(constraint_parameters, String(param))
+            push!(constraint_parameters, get_node_for_val(graph, String(param), "set of int"))
             components = components[set_end+2:end]
         else
             param_end = length(components)
@@ -54,7 +59,7 @@ function decompose_parameters(components::AbstractString, vars::IdDict{String,Va
                 param_end = only(findfirst(",", components)) - 1
             end
             param = components[1:param_end]
-            push!(constraint_parameters, to_val(String(param), vars, parameters))
+            push!(constraint_parameters, to_val(String(param), vars, parameters, graph, normalize))
             components = components[param_end+2:end]
         end
     end
@@ -66,7 +71,9 @@ function parse_constraint(line::String, parameters::IdDict{String,Parameter}, va
     open_idx, close_idx = only(findfirst("(", line)), only(findfirst(")", line))
     identifier = line[1:open_idx-1]
     components_str = line[open_idx+1:close_idx-1]
-    components = decompose_parameters(components_str, vars, parameters)
+    normalize = !occursin("element", identifier)
+    normalize = startswith(identifier, "gecode") ? true : normalize
+    components = decompose_parameters(components_str, vars, parameters, graph, normalize)
 
     #integer decompose
     if identifier == "int_lin_eq"

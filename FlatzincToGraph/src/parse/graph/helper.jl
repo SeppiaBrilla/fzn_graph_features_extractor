@@ -131,8 +131,8 @@ function build_generic_value(idx::UInt64, label::String, type::String)::String
     return "$idx: $label -- $type"
 end
 
-function flatten(list::Vector{Union{Any,Vector{Any}}})::Vector{Any}
-    new_list = Any[]
+function flatten(list::Vector{Union{Vector{T},T}})::Vector{T} where T
+    new_list = T[]
     for l in list
         if l isa Vector
             new_list = [new_list; l]

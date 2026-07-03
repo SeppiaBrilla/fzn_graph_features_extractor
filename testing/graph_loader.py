@@ -115,8 +115,8 @@ def load_original_graph(file:str|TextIO) -> Graph:
                 node = Node(label=label, _type=node_type, value=(components[2], components[3]))
             elif node_type == 'var_node':
                 node = Node(label=label, _type=node_type, value=(components[2], components[3]))
-            elif node_type == 'par_node':
-                node = Node(label=label, _type='literal_node', value=(components[2], components[3]))
+            elif node_type == 'parameter_node' or node_type == "par_node":
+                node = Node(label=label, _type='par_node', value=(components[2], components[3]))
             elif is_global(node_type):
                 global_name = node_type.replace("_node","")
                 node = Node(label=global_name + str(globals), _type=node_type)
