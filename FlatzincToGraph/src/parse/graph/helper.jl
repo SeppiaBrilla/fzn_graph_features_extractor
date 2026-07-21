@@ -4,7 +4,19 @@ using ..GraphType
 using ..Parameters
 using ..Variables
 using ..Helper
-using UUIDs
+
+function reset_counter()
+    task_local_storage(:task_counter, 0)
+    task_local_storage(:task_prefix, UInt64(0))
+end
+
+function get_next_global_id()
+    tls = task_local_storage()
+    counter = get(tls, :task_counter, 0) + 1
+    tls[:task_counter] = counter
+    prefix = get(tls, :task_prefix, UInt64(0))
+    return prefix + counter
+end
 
 function normalize_list(val)
     if val isa Parameter
@@ -17,7 +29,7 @@ function normalize_list(val)
 end
 
 function list_to_node(graph::Graph, components::Vector{Any}, type::String="int")::Node
-    arr_label = "array_" * string(UUIDs.uuid4())
+    arr_label = "array_" * string(get_next_global_id())
     arr_node = Node(arr_label, "array_node", arr_label, hash(arr_label))
     add_node(graph, arr_node)
     for comp in components
@@ -26,7 +38,6 @@ function list_to_node(graph::Graph, components::Vector{Any}, type::String="int")
     end
     return arr_node
 end
-
 
 function get_type(value::String)
     return Helper.get_type(value)
@@ -41,8 +52,8 @@ function get_type(value::Parameter)::String
 end
 
 # Helper to get variable node or literal node
-function variable_or_literal(el::String, vars::IdDict{String,Variable}, type::String)::Node
-    val = get(vars, intern(el), nothing)
+function variable_or_literal(el::String, vars::Dict{String,Variable}, type::String)::Node
+    val = get(vars, el, nothing)
     if !isnothing(val)
         id = hash(val.name)
         return Node(val.name, val.type, "$id: $(val.name) -- var_node -- $(val.type) -- $(val.domain_size)", id)
@@ -52,8 +63,8 @@ function variable_or_literal(el::String, vars::IdDict{String,Variable}, type::St
 end
 
 # Helper to get parameter node or literal node
-function parameter_or_literal(el::String, parameters::IdDict{String,Parameter}, type::String)::Node
-    val = get(parameters, intern(el), nothing)
+function parameter_or_literal(el::String, parameters::Dict{String,Parameter}, type::String)::Node
+    val = get(parameters, el, nothing)
     if !isnothing(val)
         id = hash(val.name)
         value = val.type.is_array ? "array of $(val.type.type.type)" : val.value
@@ -64,20 +75,19 @@ function parameter_or_literal(el::String, parameters::IdDict{String,Parameter}, 
 end
 
 # Resolve a single string component to a Variable, Parameter, or String literal
-function resolve_component(comp::String, parameters::IdDict{String,Parameter}, vars::IdDict{String,Variable})
-    comp_interned = intern(comp)
-    var_val = get(vars, comp_interned, nothing)
+function resolve_component(comp::String, parameters::Dict{String,Parameter}, vars::Dict{String,Variable})
+    var_val = get(vars, comp, nothing)
     if !isnothing(var_val)
         return var_val
     end
-    param_val = get(parameters, comp_interned, nothing)
+    param_val = get(parameters, comp, nothing)
     if !isnothing(param_val)
         return param_val
     end
     return comp
 end
 
-function resolve_component(comp::Vector{String}, parameters::IdDict{String,Parameter}, vars::IdDict{String,Variable})
+function resolve_component(comp::Vector{String}, parameters::Dict{String,Parameter}, vars::Dict{String,Variable})
     return [resolve_component(item, parameters, vars) for item in comp]
 end
 
@@ -135,7 +145,7 @@ function flatten(list::Vector{Union{Vector{T},T}})::Vector{T} where T
     new_list = T[]
     for l in list
         if l isa Vector
-            new_list = [new_list; l]
+            append!(new_list, l)
         else
             push!(new_list, l)
         end
@@ -143,6 +153,6 @@ function flatten(list::Vector{Union{Vector{T},T}})::Vector{T} where T
     return new_list
 end
 
-export variable_or_literal, parameter_or_literal, resolve_component, get_node_for_val, list_to_node, get_type, normalize_list, build_generic_value, flatten
+export variable_or_literal, parameter_or_literal, resolve_component, get_node_for_val, list_to_node, get_type, normalize_list, build_generic_value, flatten, reset_counter, get_next_global_id
 
 end

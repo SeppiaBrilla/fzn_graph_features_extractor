@@ -20,276 +20,282 @@ function is_constraint_line(line::String)
     return startswith(line, "constraint")
 end
 
-function to_val(val::String, vars::IdDict{String,Variable}, parameters::IdDict{String,Parameter}, graph::Graph, normalize::Bool)::Union{Node,Vector{Node}}
-    key = intern(val)
-    if haskey(vars, key)
-        return get_node_for_val(graph, vars[key])
+function to_val(val::AbstractString, vars::Dict{String,Variable}, parameters::Dict{String,Parameter}, graph::Graph, normalize::Bool)::Union{Node,Vector{Node}}
+    var = get(vars, val, nothing)
+    if !isnothing(var)
+        return get_node_for_val(graph, var)
     end
-    if haskey(parameters, key)
-        if parameters[key].type.is_array && normalize
-            return [get_node_for_val(graph, p) for p in normalize_list(parameters[key])]
+    param = get(parameters, val, nothing)
+    if !isnothing(param)
+        if param.type.is_array && normalize
+            return [get_node_for_val(graph, p) for p in normalize_list(param)]
         end
-        return get_node_for_val(graph, parameters[key])
+        return get_node_for_val(graph, param)
     end
-    return get_node_for_val(graph, val, Helper.get_type(val))
+    id = hash(val)
+    node = get(graph.node_dict, id, nothing)
+    if !isnothing(node)
+        return node
+    end
+    val_str = String(val)
+    return get_node_for_val(graph, val_str, Helper.get_type(val_str))
 end
 
+function decompose_parameters(components::AbstractString, vars::Dict{String,Variable}, parameters::Dict{String,Parameter}, graph::Graph, normalize::Bool)::Vector{Union{Vector{Node},Node}}
+    constraint_parameters = Union{Vector{Node},Node}[]
+    
+    len = lastindex(components)
+    i = 1
+    
+    @inline function skip_whitespace(idx)
+        while idx <= len && (components[idx] == ' ' || components[idx] == '\t' || components[idx] == '\n' || components[idx] == '\r')
+            idx = nextind(components, idx)
+        end
+        return idx
+    end
 
-function decompose_parameters(components::AbstractString, vars::IdDict{String,Variable}, parameters::IdDict{String,Parameter}, graph::Graph, normalize::Bool)::Vector{Union{Vector{Node},Node}}
-    constraint_parameters::Vector{Union{Vector{Node},Node}} = []
-    components = replace(components, " " => "")
-    while length(components) > 0
-        if components[1] == '[' #it is an array
-            array_end = only(findfirst("]", components))
-            param = components[2:array_end-1]
-            if param != ""
-                push!(constraint_parameters, [to_val(String(val), vars, parameters, graph, false) for val in split(param, ",")])
-            else
-                push!(constraint_parameters, Node[])
+    i = skip_whitespace(i)
+    while i <= len
+        if components[i] == '['
+            array_start = i + 1
+            close_idx = findnext(']', components, array_start)
+            if isnothing(close_idx)
+                break
             end
-            components = components[array_end+2:end]
-        elseif components[1] == '{'
-            set_end = only(findfirst('}', components))
-            param = components[1:set_end]
-            push!(constraint_parameters, get_node_for_val(graph, String(param), "set of int"))
-            components = components[set_end+2:end]
+            
+            # Non-allocating parsing of array content
+            arr_nodes = Node[]
+            p = array_start
+            p_end = close_idx - 1
+            while p <= p_end
+                while p <= p_end && (components[p] == ' ' || components[p] == '\t' || components[p] == '\n' || components[p] == '\r')
+                    p = nextind(components, p)
+                end
+                if p > p_end
+                    break
+                end
+                
+                next_comma = findnext(',', components, p)
+                val_end = (isnothing(next_comma) || next_comma > p_end) ? p_end : next_comma - 1
+                
+                # strip trailing whitespace
+                v_end = val_end
+                while v_end >= p && (components[v_end] == ' ' || components[v_end] == '\t' || components[v_end] == '\n' || components[v_end] == '\r')
+                    v_end = prevind(components, v_end)
+                end
+                
+                if p <= v_end
+                    val_sub = SubString(components, p, v_end)
+                    push!(arr_nodes, to_val(val_sub, vars, parameters, graph, false))
+                end
+                
+                p = isnothing(next_comma) ? p_end + 1 : next_comma + 1
+            end
+            push!(constraint_parameters, arr_nodes)
+            
+            i = close_idx + 1
+            i = skip_whitespace(i)
+            if i <= len && components[i] == ','
+                i = nextind(components, i)
+                i = skip_whitespace(i)
+            end
+            
+        elseif components[i] == '{'
+            close_idx = findnext('}', components, i + 1)
+            if isnothing(close_idx)
+                break
+            end
+            set_sub = SubString(components, i, close_idx)
+            push!(constraint_parameters, get_node_for_val(graph, String(set_sub), "set of int"))
+            
+            i = close_idx + 1
+            i = skip_whitespace(i)
+            if i <= len && components[i] == ','
+                i = nextind(components, i)
+                i = skip_whitespace(i)
+            end
+            
         else
-            param_end = length(components)
-            if occursin(",", components)
-                param_end = only(findfirst(",", components)) - 1
+            comma_idx = findnext(',', components, i)
+            val_end = (isnothing(comma_idx) || comma_idx > len) ? len : comma_idx - 1
+            
+            v_start = i
+            while v_start <= val_end && (components[v_start] == ' ' || components[v_start] == '\t' || components[v_start] == '\n' || components[v_start] == '\r')
+                v_start = nextind(components, v_start)
             end
-            param = components[1:param_end]
-            push!(constraint_parameters, to_val(String(param), vars, parameters, graph, normalize))
-            components = components[param_end+2:end]
+            v_end = val_end
+            while v_end >= v_start && (components[v_end] == ' ' || components[v_end] == '\t' || components[v_end] == '\n' || components[v_end] == '\r')
+                v_end = prevind(components, v_end)
+            end
+            
+            if v_start <= v_end
+                val_sub = SubString(components, v_start, v_end)
+                push!(constraint_parameters, to_val(val_sub, vars, parameters, graph, normalize))
+            end
+            
+            i = isnothing(comma_idx) ? len + 1 : comma_idx + 1
+            i = skip_whitespace(i)
         end
     end
+    
     return constraint_parameters
 end
 
-function parse_constraint(line::String, parameters::IdDict{String,Parameter}, vars::IdDict{String,Variable}, graph::Graph)::Graph
-    line = strip(line[12:end])
-    open_idx, close_idx = only(findfirst("(", line)), only(findfirst(")", line))
-    identifier = line[1:open_idx-1]
-    components_str = line[open_idx+1:close_idx-1]
+const CONSTRAINT_HANDLERS = Dict{String, Function}(
+    "int_lin_eq" => decompose_int_lin_eq,
+    "int_lin_eq_reif" => decompose_int_lin_eq_reif,
+    "int_lin_le" => decompose_int_lin_le,
+    "int_lin_le_reif" => decompose_int_lin_le_reif,
+    "array_int_element" => decompose_array_int_element,
+    "array_var_int_element" => decompose_array_var_int_element,
+    "int_div" => decompose_int_div,
+    "int_abs" => decompose_int_abs,
+    "int_eq" => decompose_int_eq,
+    "int_eq_reif" => decompose_int_eq_reif,
+    "int_le" => decompose_int_le,
+    "int_le_reif" => decompose_int_le_reif,
+    "int_lin_ne" => decompose_int_lin_ne,
+    "int_lin_ne_reif" => decompose_int_lin_ne_reif,
+    "int_lt" => decompose_int_lt,
+    "int_lt_reif" => decompose_int_lt_reif,
+    "int_max" => decompose_int_max,
+    "int_min" => decompose_int_min,
+    "int_times" => decompose_int_times,
+    "set_in" => decompose_set_in,
+    "int_mod" => decompose_int_mod,
+    "int_ne" => decompose_int_ne,
+    "int_ne_reif" => decompose_int_ne_reif,
+    "int_plus" => decompose_int_plus,
+    "int_pow" => decompose_int_pow,
+    "bool_clause" => decompose_bool_clause,
+    "array_bool_element" => decompose_array_bool_element,
+    "array_bool_and" => decompose_array_bool_and,
+    "array_bool_xor" => decompose_array_bool_xor,
+    "bool2int" => decompose_bool2int,
+    "array_var_bool_element" => decompose_array_var_bool_element,
+    "bool_and" => decompose_bool_and,
+    "bool_eq" => decompose_bool_eq,
+    "bool_eq_reif" => decompose_bool_eq_reif,
+    "bool_le" => decompose_bool_le,
+    "bool_le_reif" => decompose_bool_le_reif,
+    "bool_lin_le" => decompose_bool_lin_le,
+    "bool_lin_eq" => decompose_bool_lin_eq,
+    "bool_lt" => decompose_bool_lt,
+    "bool_lt_reif" => decompose_bool_lt_reif,
+    "bool_not" => decompose_bool_not,
+    "bool_xor" => decompose_bool_xor,
+    "bool_or" => decompose_bool_or,
+    "set_le" => decompose_set_le,
+    "set_le_reif" => decompose_set_le_reif,
+    "set_lt" => decompose_set_lt,
+    "set_lt_reif" => decompose_set_lt_reif,
+    "array_set_element" => decompose_array_set_element,
+    "array_var_set_element" => decompose_array_var_set_element,
+    "set_card" => decompose_set_card,
+    "set_diff" => decompose_set_diff,
+    "set_eq" => decompose_set_eq,
+    "set_eq_reif" => decompose_set_eq_reif,
+    "set_in_reif" => decompose_set_in_reif,
+    "set_intersect" => decompose_set_intersect,
+    "set_superset" => decompose_set_superset,
+    "set_superset_reif" => decompose_set_superset_reif,
+    "set_ne" => decompose_set_ne,
+    "set_ne_reif" => decompose_set_ne_reif,
+    "set_subset" => decompose_set_subset,
+    "set_subset_reif" => decompose_set_subset_reif,
+    "set_symdiff" => decompose_set_symdiff,
+    "set_union" => decompose_set_union,
+    "gecode_cumulatives" => decompose_global_cumulatives,
+    "gecode_int_element" => decompose_global_int_element,
+    "int_lin_eq_imp" => decompose_global_int_lin_eq_imp,
+    "array_int_maximum" => decompose_global_array_int_maximum,
+    "gecode_schedule_unary" => decompose_global_schedule_unary,
+    "int_le_imp" => decompose_global_int_le_imp,
+    "gecode_global_cardinality" => decompose_global_global_cardinality,
+    "fzn_global_cardinality_low_up" => decompose_global_cardinality_low_up,
+    "gecode_maximum_arg_int_offset" => decompose_global_maximum_arg_int_offset,
+    "gecode_circuit" => decompose_global_circuit,
+    "fzn_count_eq_reif" => decompose_global_count_eq_reif,
+    "set_in_imp" => decompose_global_set_in_imp,
+    "fzn_count_eq" => decompose_global_fzn_count_eq,
+    "fzn_global_cardinality_low_up_closed" => decompose_global_fzn_global_cardinality_low_up_closed,
+    "bool_xor_imp" => decompose_global_bool_xor_imp,
+    "gecode_nooverlap" => decompose_global_nooverlap,
+    "gecode_regular" => decompose_global_regular,
+    "fzn_all_different_int" => decompose_global_all_different_int,
+    "int_eq_imp" => decompose_global_int_eq_imp,
+    "fzn_all_equal_int" => decompose_global_all_equal,
+    "gecode_bool_element" => decompose_global_bool_element,
+    "array_int_minimum" => decompose_global_array_int_minimum,
+    "bool_clause_reif" => decompose_global_bool_clause_reif,
+    "gecode_int_element2d" => decompose_global_int_element_2d,
+    "gecode_bin_packing_load" => decompose_global_bin_packing_load,
+    "gecode_table_int" => decompose_global_table_int,
+    "gecode_precede" => decompose_global_precede,
+    "array_int_lq" => decompose_global_array_int_lq,
+    "int_lin_le_imp" => decompose_global_int_lin_le_imp,
+    "int_lin_ne_imp" => decompose_global_int_lin_ne_imp,
+    "fzn_increasing_int" => decompose_global_increasing_int,
+    "inverse_offsets" => decompose_global_inverse_offsets,
+    "fzn_nvalue" => decompose_global_nvalue,
+    "int_ne_imp" => decompose_global_int_ne_imp,
+    "gecode_table_int_imp" => decompose_global_table_int_imp,
+    "fzn_member_int" => decompose_global_fzn_member_int,
+    "gecode_global_cardinality_closed" => decompose_global_global_cardinality_closed,
+    "gecode_int_pow" => decompose_global_gecode_int_pow,
+    "fzn_at_most_int" => decompose_fzn_at_most_int,
+    "fzn_at_least_int" => decompose_global_fzn_at_least_int,
+    "fzn_increasing_bool" => decompose_global_fzn_increasing_bool
+)
+
+function parse_constraint(line::String, parameters::Dict{String,Parameter}, vars::Dict{String,Variable}, graph::Graph)::Graph
+    open_idx = findnext('(', line, 12)
+    if isnothing(open_idx)
+        return graph
+    end
+    
+    id_start = 12
+    id_end = open_idx - 1
+    while id_start <= id_end && (line[id_start] == ' ' || line[id_start] == '\t')
+        id_start = nextind(line, id_start)
+    end
+    while id_end >= id_start && (line[id_end] == ' ' || line[id_end] == '\t')
+        id_end = prevind(line, id_end)
+    end
+    if id_start > id_end
+        return graph
+    end
+    identifier = String(SubString(line, id_start, id_end))
+    
+    # Find matching closing parenthesis
+    close_idx = -1
+    nest_level = 0
+    for idx in open_idx:length(line)
+        c = line[idx]
+        if c == '('
+            nest_level += 1
+        elseif c == ')'
+            nest_level -= 1
+            if nest_level == 0
+                close_idx = idx
+                break
+            end
+        end
+    end
+    
+    if close_idx == -1
+        return graph
+    end
+    
+    components_str = SubString(line, open_idx+1, close_idx-1)
+    
     normalize = !occursin("element", identifier)
     normalize = startswith(identifier, "gecode") ? true : normalize
     components = decompose_parameters(components_str, vars, parameters, graph, normalize)
-
-    #integer decompose
-    if identifier == "int_lin_eq"
-        return decompose_int_lin_eq(components, graph)
-    elseif identifier == "int_lin_eq_reif"
-        return decompose_int_lin_eq_reif(components, graph)
-    elseif identifier == "int_lin_le"
-        return decompose_int_lin_le(components, graph)
-    elseif identifier == "int_lin_le_reif"
-        return decompose_int_lin_le_reif(components, graph)
-    elseif identifier == "array_int_element"
-        return decompose_array_int_element(components, graph)
-    elseif identifier == "array_var_int_element"
-        return decompose_array_var_int_element(components, graph)
-    elseif identifier == "int_div"
-        return decompose_int_div(components, graph)
-    elseif identifier == "int_abs"
-        return decompose_int_abs(components, graph)
-    elseif identifier == "int_eq"
-        return decompose_int_eq(components, graph)
-    elseif identifier == "int_eq_reif"
-        return decompose_int_eq_reif(components, graph)
-    elseif identifier == "int_le"
-        return decompose_int_le(components, graph)
-    elseif identifier == "int_le_reif"
-        return decompose_int_le_reif(components, graph)
-    elseif identifier == "int_lin_ne"
-        return decompose_int_lin_ne(components, graph)
-    elseif identifier == "int_lin_ne_reif"
-        return decompose_int_lin_ne_reif(components, graph)
-    elseif identifier == "int_lt"
-        return decompose_int_lt(components, graph)
-    elseif identifier == "int_lt_reif"
-        return decompose_int_lt_reif(components, graph)
-    elseif identifier == "int_max"
-        return decompose_int_max(components, graph)
-    elseif identifier == "int_min"
-        return decompose_int_min(components, graph)
-    elseif identifier == "int_times"
-        return decompose_int_times(components, graph)
-    elseif identifier == "set_in"
-        return decompose_set_in(components, graph)
-    elseif identifier == "int_mod"
-        return decompose_int_mod(components, graph)
-    elseif identifier == "int_ne"
-        return decompose_int_ne(components, graph)
-    elseif identifier == "int_ne_reif"
-        return decompose_int_ne_reif(components, graph)
-    elseif identifier == "int_plus"
-        return decompose_int_plus(components, graph)
-    elseif identifier == "int_pow"
-        return decompose_int_pow(components, graph)
-
-        #bool decompose
-    elseif identifier == "bool_clause"
-        return decompose_bool_clause(components, graph)
-    elseif identifier == "array_bool_element"
-        return decompose_array_bool_element(components, graph)
-    elseif identifier == "array_bool_and"
-        return decompose_array_bool_and(components, graph)
-    elseif identifier == "array_bool_xor"
-        return decompose_array_bool_xor(components, graph)
-    elseif identifier == "bool2int"
-        return decompose_bool2int(components, graph)
-    elseif identifier == "array_var_bool_element"
-        return decompose_array_var_bool_element(components, graph)
-    elseif identifier == "bool_and"
-        return decompose_bool_and(components, graph)
-    elseif identifier == "bool_eq"
-        return decompose_bool_eq(components, graph)
-    elseif identifier == "bool_eq_reif"
-        return decompose_bool_eq_reif(components, graph)
-    elseif identifier == "bool_le"
-        return decompose_bool_le(components, graph)
-    elseif identifier == "bool_le_reif"
-        return decompose_bool_le_reif(components, graph)
-    elseif identifier == "bool_lin_le"
-        return decompose_bool_lin_le(components, graph)
-    elseif identifier == "bool_lin_eq"
-        return decompose_bool_lin_eq(components, graph)
-    elseif identifier == "bool_lt"
-        return decompose_bool_lt(components, graph)
-    elseif identifier == "bool_lt_reif"
-        return decompose_bool_lt_reif(components, graph)
-    elseif identifier == "bool_not"
-        return decompose_bool_not(components, graph)
-    elseif identifier == "bool_xor"
-        return decompose_bool_xor(components, graph)
-    elseif identifier == "bool_or"
-        return decompose_bool_or(components, graph)
-
-        #decompose set
-    elseif identifier == "set_le"
-        return decompose_set_le(components, graph)
-    elseif identifier == "set_le_reif"
-        return decompose_set_le_reif(components, graph)
-    elseif identifier == "set_lt"
-        return decompose_set_lt(components, graph)
-    elseif identifier == "set_lt_reif"
-        return decompose_set_lt_reif(components, graph)
-    elseif identifier == "array_set_element"
-        return decompose_array_set_element(components, graph)
-    elseif identifier == "array_var_set_element"
-        return decompose_array_var_set_element(components, graph)
-    elseif identifier == "set_card"
-        return decompose_set_card(components, graph)
-    elseif identifier == "set_diff"
-        return decompose_set_diff(components, graph)
-    elseif identifier == "set_eq"
-        return decompose_set_eq(components, graph)
-    elseif identifier == "set_eq_reif"
-        return decompose_set_eq_reif(components, graph)
-    elseif identifier == "set_in_reif"
-        return decompose_set_in_reif(components, graph)
-    elseif identifier == "set_intersect"
-        return decompose_set_intersect(components, graph)
-    elseif identifier == "set_superset"
-        return decompose_set_superset(components, graph)
-    elseif identifier == "set_superset_reif"
-        return decompose_set_superset_reif(components, graph)
-    elseif identifier == "set_ne"
-        return decompose_set_ne(components, graph)
-    elseif identifier == "set_ne_reif"
-        return decompose_set_ne_reif(components, graph)
-    elseif identifier == "set_subset"
-        return decompose_set_subset(components, graph)
-    elseif identifier == "set_subset_reif"
-        return decompose_set_subset_reif(components, graph)
-    elseif identifier == "set_symdiff"
-        return decompose_set_symdiff(components, graph)
-    elseif identifier == "set_union"
-        return decompose_set_union(components, graph)
-
-        #decompose globals
-    elseif identifier == "gecode_cumulatives"
-        return decompose_global_cumulatives(components, graph)
-    elseif identifier == "gecode_int_element"
-        return decompose_global_int_element(components, graph)
-    elseif identifier == "int_lin_eq_imp"
-        return decompose_global_int_lin_eq_imp(components, graph)
-    elseif identifier == "array_int_maximum"
-        return decompose_global_array_int_maximum(components, graph)
-    elseif identifier == "gecode_schedule_unary"
-        return decompose_global_schedule_unary(components, graph)
-    elseif identifier == "int_le_imp"
-        return decompose_global_int_le_imp(components, graph)
-    elseif identifier == "gecode_global_cardinality"
-        return decompose_global_global_cardinality(components, graph)
-    elseif identifier == "fzn_global_cardinality_low_up"
-        return decompose_global_cardinality_low_up(components, graph)
-    elseif identifier == "gecode_maximum_arg_int_offset"
-        return decompose_global_maximum_arg_int_offset(components, graph)
-    elseif identifier == "gecode_circuit"
-        return decompose_global_circuit(components, graph)
-    elseif identifier == "fzn_count_eq_reif"
-        return decompose_global_count_eq_reif(components, graph)
-    elseif identifier == "set_in_imp"
-        return decompose_global_set_in_imp(components, graph)
-    elseif identifier == "fzn_count_eq"
-        return decompose_global_fzn_count_eq(components, graph)
-    elseif identifier == "fzn_global_cardinality_low_up_closed"
-        return decompose_global_fzn_global_cardinality_low_up_closed(components, graph)
-    elseif identifier == "bool_xor_imp"
-        return decompose_global_bool_xor_imp(components, graph)
-    elseif identifier == "gecode_nooverlap"
-        return decompose_global_nooverlap(components, graph)
-    elseif identifier == "gecode_regular"
-        return decompose_global_regular(components, graph)
-    elseif identifier == "fzn_all_different_int"
-        return decompose_global_all_different_int(components, graph)
-    elseif identifier == "int_eq_imp"
-        return decompose_global_int_eq_imp(components, graph)
-    elseif identifier == "fzn_all_equal_int"
-        return decompose_global_all_equal(components, graph)
-    elseif identifier == "gecode_bool_element"
-        return decompose_global_bool_element(components, graph)
-    elseif identifier == "array_int_minimum"
-        return decompose_global_array_int_minimum(components, graph)
-    elseif identifier == "bool_clause_reif"
-        return decompose_global_bool_clause_reif(components, graph)
-    elseif identifier == "gecode_int_element2d"
-        return decompose_global_int_element_2d(components, graph)
-    elseif identifier == "gecode_bin_packing_load"
-        return decompose_global_bin_packing_load(components, graph)
-    elseif identifier == "gecode_table_int"
-        return decompose_global_table_int(components, graph)
-    elseif identifier == "gecode_precede"
-        return decompose_global_precede(components, graph)
-    elseif identifier == "array_int_lq"
-        return decompose_global_array_int_lq(components, graph)
-    elseif identifier == "int_lin_le_imp"
-        return decompose_global_int_lin_le_imp(components, graph)
-    elseif identifier == "int_lin_ne_imp"
-        return decompose_global_int_lin_ne_imp(components, graph)
-    elseif identifier == "fzn_increasing_int"
-        return decompose_global_increasing_int(components, graph)
-    elseif identifier == "inverse_offsets"
-        return decompose_global_inverse_offsets(components, graph)
-    elseif identifier == "fzn_nvalue"
-        return decompose_global_nvalue(components, graph)
-    elseif identifier == "int_ne_imp"
-        return decompose_global_int_ne_imp(components, graph)
-    elseif identifier == "gecode_table_int_imp"
-        return decompose_global_table_int_imp(components, graph)
-    elseif identifier == "fzn_member_int"
-        return decompose_global_fzn_member_int(components, graph)
-    elseif identifier == "gecode_global_cardinality_closed"
-        return decompose_global_global_cardinality_closed(components, graph)
-    elseif identifier == "gecode_int_pow"
-        return decompose_global_gecode_int_pow(components, graph)
-    elseif identifier == "fzn_at_most_int"
-        return decompose_fzn_at_most_int(components, graph)
-    elseif identifier == "fzn_at_least_int"
-        return decompose_global_fzn_at_least_int(components, graph)
-    elseif identifier == "fzn_increasing_bool"
-        return decompose_global_fzn_increasing_bool(components, graph)
+    
+    handler = get(CONSTRAINT_HANDLERS, identifier, nothing)
+    if !isnothing(handler)
+        return handler(components, graph)
     end
     return graph
 end

@@ -5,36 +5,24 @@ using ...Parameters
 using ...Variables
 using ...Helper
 using ...GraphHelper
-using UUIDs
 
 function decompose_generic_global(args::Vector{Union{Vector{Node},Node}}, graph::Graph, label_prefix::String, type::String)::Graph
-    element_nodes = flatten(args)
-    # for arg in flatten(args)
-    #     if arg isa Parameter
-    #         if arg.type.is_array
-    #             for a in arg.value
-    #                 val_type = GraphHelper.get_type(a)
-    #                 push!(element_nodes, get_node_for_val(graph, a, val_type))
-    #             end
-    #         else
-    #             val_type = GraphHelper.get_type(arg)
-    #             push!(element_nodes, get_node_for_val(graph, arg, val_type))
-    #         end
-    #     else
-    #         val_type = GraphHelper.get_type(arg)
-    #         push!(element_nodes, get_node_for_val(graph, arg, val_type))
-    #     end
-    # end
-
-    global_label = label_prefix * string(UUIDs.uuid4())
+    global_label = label_prefix * string(GraphHelper.get_next_global_id())
     global_hash = hash(global_label)
     global_node = Node(global_label, type, build_generic_value(global_hash, global_label, type), global_hash)
     add_node(graph, global_node)
 
-    # De-duplicate elements to avoid duplicate edges
-    for node in unique(n -> n.id, element_nodes)
-        add_node(graph, node)
-        add_edge(graph, node.id, global_node.id, Edge("2"))
+    edge_obj = Edge("2")
+    for arg in args
+        if arg isa Vector{Node}
+            for node in arg
+                add_node(graph, node)
+                add_edge(graph, node.id, global_node.id, edge_obj)
+            end
+        else
+            add_node(graph, arg)
+            add_edge(graph, arg.id, global_node.id, edge_obj)
+        end
     end
 
     return graph

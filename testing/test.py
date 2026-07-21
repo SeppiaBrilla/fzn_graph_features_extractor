@@ -10,7 +10,7 @@ def make_flat(model:str, instance:str):
 def make_graphs(model:str, instance:str):
     make_flat(model, instance)
     subprocess.run(["python ../flatzinc_parser/flatzinc_parser.py ./.cache/model.fzn ./.cache/original.graph"], shell=True)
-    subprocess.run(["julia ./FlatzincToGraph/src/FlatzincToGraph.jl ./.cache/model.fzn ./.cache/new.graph"], shell=True)
+    subprocess.run(["julia ./FlatzincToGraph/src/FlatzincToGraph.jl ./.cache/model.fzn ./.cache/new.graph 4"], shell=True)
 
 def typer(t:str) -> str:
     if t == "par_node":

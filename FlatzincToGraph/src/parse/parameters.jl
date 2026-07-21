@@ -42,7 +42,7 @@ function is_parameter(line::AbstractString)::Bool
         return false
     end
     type_separator = findfirst(":", line)
-    type_part = line[1:first(type_separator)-1]
+    type_part = SubString(line, 1, first(type_separator)-1)
     if startswith(type_part, "var")
         return false
     end
@@ -65,14 +65,18 @@ function bounded_type(par_type_str::AbstractString)::Union{Nothing,String}
 end
 
 function parse_type(par_type_str::AbstractString)::Union{Nothing,ParType}
-    if par_type_str in ("bool", "int", "float", "set of int")
-        return ParType(Type(par_type_str, false), false)
+    if par_type_str == "bool" || par_type_str == "int" || par_type_str == "float" || par_type_str == "set of int"
+        return ParType(Type(String(par_type_str), false), false)
     end
     if startswith(par_type_str, "array")
-        components = split(par_type_str, "of")
-        array_value_type = strip(join(components[2:end], "of"))
-        type = Type(String(replace(array_value_type, "var " => "")), occursin("var", array_value_type))
-        return ParType(type, true)
+        of_idx = findfirst("of", par_type_str)
+        if isnothing(of_idx)
+            return nothing
+        end
+        array_value_type = strip(SubString(par_type_str, first(of_idx)+2, length(par_type_str)))
+        is_var = startswith(array_value_type, "var ")
+        type_name = is_var ? strip(SubString(array_value_type, 5, length(array_value_type))) : array_value_type
+        return ParType(Type(String(type_name), is_var), true)
     end
     bound = bounded_type(par_type_str)
     if isnothing(bound)
@@ -81,16 +85,16 @@ function parse_type(par_type_str::AbstractString)::Union{Nothing,ParType}
     return ParType(Type(bound, false), false)
 end
 
-function parse_par_value(par_value_str::AbstractString, par_type::ParType, vars::IdDict{String,Variable})
+function parse_par_value(par_value_str::AbstractString, par_type::ParType, vars::Dict{String,Variable})
     val_str = strip(par_value_str)
     if endswith(val_str, ';')
-        val_str = strip(val_str[1:end-1])
+        val_str = strip(SubString(val_str, 1, length(val_str)-1))
     end
     if par_type.is_array
         if startswith(val_str, '[') && endswith(val_str, ']')
-            val_str = val_str[2:end-1]
+            val_str = SubString(val_str, 2, length(val_str)-1)
         end
-        element_str = String[]
+        element_str = SubString{String}[]
         if occursin("{", val_str) || occursin("[", val_str)
             i = 1
             len = length(val_str)
@@ -118,29 +122,25 @@ function parse_par_value(par_value_str::AbstractString, par_type::ParType, vars:
                         end_idx = comma_idx - 1
                     end
                 end
-                push!(element_str, String(val_str[i:end_idx]))
+                push!(element_str, SubString(val_str, i, end_idx))
                 i = nextind(val_str, end_idx) + 1
             end
         else
-            element_str = [String(strip(x)) for x in split(val_str, ",")]
+            for x in eachsplit(val_str, ',')
+                push!(element_str, strip(x))
+            end
         end
         elements = Any[]
         if !par_type.type.is_var
-            if par_type.type.type == "int"
-                elements = [Parameter(e, ParType(Type("int", false), false), e) for e in element_str]
-            elseif par_type.type.type == "bool"
-                elements = [Parameter(e, ParType(Type("bool", false), false), e) for e in element_str]
-            elseif par_type.type.type == "set of int"
-                elements = [Parameter(e, ParType(Type("set of int", false), false), e) for e in element_str]
-            elseif par_type.type.type == "float"
-                elements = [Parameter(e, ParType(Type("float", false), false), e) for e in element_str]
-            end
+            t_name = par_type.type.type
+            p_type = ParType(Type(t_name, false), false)
+            elements = [Parameter(String(e), p_type, String(e)) for e in element_str]
         else
             for element in element_str
                 if is_literal(element)
-                    push!(elements, element)
+                    push!(elements, String(element))
                 else
-                    push!(elements, vars[intern(element)])
+                    push!(elements, vars[element])
                 end
             end
         end
@@ -149,25 +149,36 @@ function parse_par_value(par_value_str::AbstractString, par_type::ParType, vars:
         if !par_type.type.is_var
             return String(val_str)
         else
-            return vars[intern(val_str)]
+            return vars[val_str]
         end
     end
 end
 
-function parse_parameter(line::String, vars::IdDict{String,Variable})::Union{Nothing,Parameter}
-    type_separator_idx = only(findfirst(":", line))
-    value_separator_idx = only(findfirst("=", line))
-    par_type = parse_type(line[1:type_separator_idx-1])
+function parse_parameter(line::String, vars::Dict{String,Variable})::Union{Nothing,Parameter}
+    type_separator_idx = findfirst(':', line)
+    if isnothing(type_separator_idx)
+        return nothing
+    end
+    value_separator_idx = findfirst('=', line)
+    if isnothing(value_separator_idx)
+        return nothing
+    end
+    
+    par_type = parse_type(SubString(line, 1, type_separator_idx-1))
     if isnothing(par_type)
         return nothing
     end
-    name = replace(line[type_separator_idx+1:value_separator_idx-1], " " => "")
-    if occursin("::", name)
-        name = String(split(name, "::")[1])
+    
+    start_idx = type_separator_idx + 1
+    end_pos = value_separator_idx
+    colon_colon_idx = findnext("::", line, start_idx)
+    if !isnothing(colon_colon_idx) && first(colon_colon_idx) < end_pos
+        end_pos = first(colon_colon_idx)
     end
-    name = intern(name)
-    value = parse_par_value(strip(line[value_separator_idx+1:end]), par_type, vars)
-    return Parameter(name, par_type, value)
+    name = strip(SubString(line, start_idx, end_pos-1))
+    
+    value = parse_par_value(strip(SubString(line, value_separator_idx+1, length(line))), par_type, vars)
+    return Parameter(String(name), par_type, value)
 end
 
 export is_parameter, parse_parameter, Parameter, ParType, Type

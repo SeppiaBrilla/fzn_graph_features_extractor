@@ -5,13 +5,14 @@ include("parse/flatzinc_to_graph.jl")
 using .FlatzincToGraphParser
 
 function run_program(ARGS)
-    if length(ARGS) == 0
-        println("no argument passed. pass a model")
+    if length(ARGS) < 2
+        println("usage: FlatzincToGraph <input_file> <output_file> [num_cores]")
         return
     end
     file_in = ARGS[1]
     file_out = ARGS[2]
-    graph = flatzinc_to_graph(file_in)
+    num_cores = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 1
+    graph = flatzinc_to_graph(file_in, num_cores)
     write_graph(graph, file_out)
 end
 

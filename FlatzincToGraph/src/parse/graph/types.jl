@@ -13,51 +13,36 @@ end
 
 struct Graph
     nodes::Vector{Node}
-    edges::IdDict{Tuple{UInt64,UInt64},Edge}
-    edge_from::IdDict{UInt64,Vector{Tuple{UInt64,Edge}}}
-    edge_to::IdDict{UInt64,Vector{Tuple{UInt64,Edge}}}
-    node_dict::IdDict{UInt64,Node}
+    edges::Vector{Tuple{UInt64,UInt64,String}}
+    edge_set::Set{UInt128}
+    node_dict::Dict{UInt64,Node}
 end
 
 # Outer constructor for empty Graph
 Graph() = Graph(
     Node[],
-    IdDict{Tuple{Int,Int},Edge}(),
-    IdDict{UInt64,Vector{Tuple{Node,Edge}}}(),
-    IdDict{UInt64,Vector{Tuple{Node,Edge}}}(),
-    IdDict{UInt64,Node}()
+    Tuple{UInt64,UInt64,String}[],
+    Set{UInt128}(),
+    Dict{UInt64,Node}()
 )
 
 function add_node(graph::Graph, node::Node)::Graph
-    if haskey(graph.node_dict, node.id)
-        return graph
+    if !haskey(graph.node_dict, node.id)
+        push!(graph.nodes, node)
+        graph.node_dict[node.id] = node
     end
-    push!(graph.nodes, node)
-    graph.node_dict[node.id] = node
     return graph
 end
 
 function add_edge(graph::Graph, _from::UInt64, _to::UInt64, e::Edge)::Graph
-    if !haskey(graph.node_dict, _from)
-        throw(error("node from not present"))
-    elseif !haskey(graph.node_dict, _to)
-        throw(error("node to not present"))
+    key = (UInt128(_from) << 64) | UInt128(_to)
+    if !(key in graph.edge_set)
+        push!(graph.edge_set, key)
+        push!(graph.edges, (_from, _to, e.label))
     end
-    if haskey(graph.edges, (_from, _to))
-        return graph
-    end
-    graph.edges[(_from, _to)] = e
-    if !haskey(graph.edge_to, _to)
-        graph.edge_to[_to] = []
-    end
-    if !haskey(graph.edge_from, _from)
-        graph.edge_from[_from] = []
-    end
-    push!(graph.edge_to[_to], (_from, e))
-    push!(graph.edge_from[_from], (_to, e))
     return graph
-
 end
+
 export Graph, Node, Edge, add_node, add_edge
 
 end
