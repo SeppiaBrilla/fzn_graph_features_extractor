@@ -3,6 +3,9 @@ module FlatzincToGraph
 include("parse/flatzinc_to_graph.jl")
 
 using .FlatzincToGraphParser
+using .FlatzincToGraphParser.GraphType
+
+export FlatzincToGraphParser, GraphType, Graph, Node, Edge, add_node, add_edge, flatzinc_to_graph, write_graph
 
 function run_program(ARGS)
     if length(ARGS) < 2

@@ -1,0 +1,15 @@
+name = "ZincToWl"
+uuid = "39c23178-992c-4e63-a3ee-0a2cce8e9c4c"
+version = "0.1.0"
+authors = ["alessio <alessio@imada.sdu.dk>"]
+
+[deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+FlatzincToGraph = "6ea5acb2-633c-473f-8148-2c2fe4b1a296"
+PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+
+[compat]
+ArgParse = "1.2.0"
+PackageCompiler = "2.4.0"
+Serialization = "1.11.0"
