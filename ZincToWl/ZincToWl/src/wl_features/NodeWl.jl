@@ -3,44 +3,72 @@ module NodeWl
 using FlatzincToGraph.GraphType
 using ..Helper
 
-function wl_node_directed_last(g::GraphType.Graph, colors::Dict{String,UInt64}, iterations::Int, training::Bool)::Vector{UInt64}
-    node_idx = Dict{UInt64,Int}(node.id => idx for (idx, node) in enumerate(g.nodes))
-    n_nodes = length(g.nodes)
-
-    for node in g.nodes
-        t_type = typer(node.type)
-        if !haskey(colors, t_type)
-            colors[t_type] = hash(t_type)
-        end
+@inline function process_node!(i::Int, in_adj::Vector{Vector{Tuple{Int,UInt64}}}, curr_colors::Vector{UInt64}, next_colors::Vector{UInt64}, colors::Dict{UInt64,UInt64}, colors_lock::ReentrantLock, training::Bool, buffer::Vector{UInt64})
+    adj_list = in_adj[i]
+    neib_buf = view(buffer, 1:length(adj_list))
+    for (k, (from_i, _)) in enumerate(adj_list)
+        neib_buf[k] = curr_colors[from_i]
     end
-    node_colors = [colors[typer(node.type)] for node in g.nodes]
+    sort!(neib_buf)
 
-    for _ in 1:iterations
-        neib_colors = [UInt64[] for _ in 1:n_nodes]
+    h_key = tailored_hash(curr_colors[i], neib_buf)
 
-        for (from_id, to_id, _) in g.edges
-            from_i = node_idx[from_id]
-            to_i = node_idx[to_id]
-            push!(neib_colors[to_i], node_colors[from_i])
-        end
-
-        updated_colors = Vector{String}(undef, n_nodes)
-        for i in 1:n_nodes
-            updated_colors[i] = string(node_colors[i], ",", join(sort!(neib_colors[i]), ","))
-        end
-
-        if training
-            for uc in unique(updated_colors)
-                if !haskey(colors, uc)
-                    colors[uc] = hash(uc)
-                end
+    if training
+        if !haskey(colors, h_key)
+            lock(colors_lock) do
+                colors[h_key] = h_key
             end
         end
+        next_colors[i] = h_key
+    else
+        next_colors[i] = get(colors, h_key, curr_colors[i])
+    end
+end
 
-        node_colors = [get(colors, uc, node_colors[i]) for (i, uc) in enumerate(updated_colors)]
+function wl_node_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool, num_cores::Int=1)::Vector{UInt64}
+    n_nodes = length(g.nodes)
+    if n_nodes == 0
+        return UInt64[]
     end
 
-    return node_colors
+    in_adj = g.in_adj
+
+    curr_colors = Vector{UInt64}(undef, n_nodes)
+    for (i, node) in enumerate(g.nodes)
+        t_type = typer(node.type)
+        h_type = hash(t_type)
+        if training
+            if !haskey(colors, h_type)
+                colors[h_type] = h_type
+            end
+            curr_colors[i] = h_type
+        else
+            curr_colors[i] = get(colors, h_type, h_type)
+        end
+    end
+
+    next_colors = Vector{UInt64}(undef, n_nodes)
+    colors_lock = ReentrantLock()
+
+    use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.nthreads() > 1
+
+    max_degree = maximum(length(adj_list) for adj_list in in_adj; init=0)
+    buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.nthreads()]
+
+    for _ in 1:iterations
+        if use_parallel
+            Threads.@threads for i in 1:n_nodes
+                process_node!(i, in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[Threads.threadid()])
+            end
+        else
+            for i in 1:n_nodes
+                process_node!(i, in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[1])
+            end
+        end
+        curr_colors, next_colors = next_colors, curr_colors
+    end
+
+    return curr_colors
 end
 
 export wl_node_directed_last

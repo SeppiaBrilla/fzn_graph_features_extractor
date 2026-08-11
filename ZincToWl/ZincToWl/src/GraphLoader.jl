@@ -3,19 +3,19 @@ module GraphLoader
 using FlatzincToGraph
 
 const GLOBAL_NODES = Set([
-    "cumulatives_node", "int_element_node", "int_lin_eq_imp_node", "array_int_maximum_node",
-    "schedule_unary_node", "int_le_imp_node", "global_cardinality_node", "global_cardinality_low_up_node",
-    "maximum_arg_int_offset_node", "circuit_node", "count_eq_reif_node", "set_in_imp_node",
-    "count_eq_node", "global_cardinality_low_up_closed_node", "bool_xor_imp_node", "nooverlap_node",
-    "regular_node", "all_different_node", "eq_imp_node", "all_equal_node", "bool_element_node",
-    "array_int_minimum_node", "bool_clause_reif_node", "int_element2d_node", "bin_packing_load_node",
-    "table_int_node", "precede_node", "array_int_lq_node", "int_lin_le_imp_node", "int_lin_ne_imp_node",
-    "increasing_int_node", "inverse_offsets_node", "nvalue_node", "int_ne_imp_node", "increasing_bool_node",
-    "member_int_node", "table_int_imp_node", "at_least_node", "at_most_node", "int_pow_node",
-    "global_cardinality_closed_node", "lin_sum_node"
+    :cumulatives_node, :int_element_node, :int_lin_eq_imp_node, :array_int_maximum_node,
+    :schedule_unary_node, :int_le_imp_node, :global_cardinality_node, :global_cardinality_low_up_node,
+    :maximum_arg_int_offset_node, :circuit_node, :count_eq_reif_node, :set_in_imp_node,
+    :count_eq_node, :global_cardinality_low_up_closed_node, :bool_xor_imp_node, :nooverlap_node,
+    :regular_node, :all_different_node, :eq_imp_node, :all_equal_node, :bool_element_node,
+    :array_int_minimum_node, :bool_clause_reif_node, :int_element2d_node, :bin_packing_load_node,
+    :table_int_node, :precede_node, :array_int_lq_node, :int_lin_le_imp_node, :int_lin_ne_imp_node,
+    :increasing_int_node, :inverse_offsets_node, :nvalue_node, :int_ne_imp_node, :increasing_bool_node,
+    :member_int_node, :table_int_imp_node, :at_least_node, :at_most_node, :int_pow_node,
+    :global_cardinality_closed_node, :lin_sum_node
 ])
 
-is_global(node_type::SubString{String}) = node_type in GLOBAL_NODES
+is_global(node_type::Symbol) = node_type in GLOBAL_NODES
 
 function load_graph(filepath::String)::Graph
     graph = Graph()
@@ -23,8 +23,18 @@ function load_graph(filepath::String)::Graph
     open(filepath, "r") do file
         nodes_section = false
         edges_section = false
-        nodes = Dict{UInt64,Node}()
         globals_count = 0
+
+        header = readline(file)
+        @assert startswith(header, "##") "Invalid header"
+        # header format: ## n. nodes - n. edges
+        pos = findfirst(" - ", header)
+        n_nodes = parse(Int, strip(SubString(header, 3, first(pos) - 1)))
+        n_edges = parse(Int, strip(SubString(header, last(pos) + 1)))
+        sizehint!(graph.nodes, n_nodes)
+        sizehint!(graph.node_dict, n_nodes)
+        sizehint!(graph.edges, n_edges)
+        sizehint!(graph.edge_set, n_edges)
 
         for line in eachline(file)
             line = strip(line)
@@ -43,43 +53,64 @@ function load_graph(filepath::String)::Graph
 
             if nodes_section
                 # Format: "idx: label -- type -- extra..."
-                parts = split(line, ": ", limit=2)
-                if length(parts) < 2
-                    continue
-                end
-                idx_str = parts[1]
-                idx = parse(UInt64, idx_str)
-                components = split(parts[2], " -- ")
-                label = components[1]
-                node_type = components[2]
+                pos = findfirst(':', line)
+                isnothing(pos) && continue
 
-                if node_type == "literal_node" || node_type == "var_node"
-                    node = Node(label, node_type, line, idx)
-                elseif node_type == "parameter_node" || node_type == "par_node"
-                    node = Node(label, "par_node", line, idx)
-                elseif is_global(node_type)
+                idx_str = SubString(line, 1, first(pos) - 1)
+                rest = strip(SubString(line, last(pos) + 1))
+                idx = parse(UInt64, idx_str)
+
+                pos = findfirst(" -- ", rest)
+                isnothing(pos) && continue
+                label = SubString(rest, 1, first(pos) - 1)
+
+                start_node_type = last(pos) + 1
+                pos = findnext(" -- ", rest, start_node_type)
+                if isnothing(pos)
+                    node_type = SubString(rest, start_node_type)
+                else
+                    node_type = SubString(rest, start_node_type, first(pos) - 1)
+                end
+
+                sym_node_type = Symbol(node_type)
+
+                if sym_node_type === :literal_node || sym_node_type === :var_node
+                    node = Node(label, sym_node_type, line, idx)
+                elseif sym_node_type === :parameter_node || sym_node_type === :par_node
+                    node = Node(label, :par_node, line, idx)
+                elseif is_global(sym_node_type)
                     global_name = replace(node_type, "_node" => "")
-                    node = Node(global_name * string(globals_count), node_type, line, idx)
+                    node = Node(global_name * string(globals_count), sym_node_type, line, idx)
                     globals_count += 1
                 else
-                    node = Node(label, node_type, line, idx)
+                    node = Node(label, sym_node_type, line, idx)
                 end
 
                 add_node(graph, node)
-                nodes[idx] = node
             elseif edges_section
                 # Format: "idx: node1--node2--label"
-                parts = split(line, ": ", limit=2)
-                if length(parts) < 2
-                    continue
+                pos = findfirst(':', line)
+                isnothing(pos) && continue
+
+                rest = strip(SubString(line, last(pos) + 1))
+                pos = findfirst("--", rest)
+                isnothing(pos) && continue
+                n1_str = SubString(rest, 1, first(pos) - 1)
+                n1 = parse(UInt64, n1_str)
+
+                pos2 = findnext("--", rest, last(pos) + 1)
+                isnothing(pos2) && continue
+
+                n2_str = SubString(rest, last(pos) + 1, first(pos2) - 1)
+                n2 = parse(UInt64, n2_str)
+
+                pos3 = findnext("--", rest, last(pos2) + 1)
+                if isnothing(pos3)
+                    edge_label = Symbol(SubString(rest, last(pos2) + 1))
+                else
+                    edge_label = Symbol(SubString(rest, last(pos2) + 1, first(pos3) - 1))
                 end
-                edge_components = split(parts[2], "--")
-                if length(edge_components) >= 3
-                    n1 = parse(UInt64, edge_components[1])
-                    n2 = parse(UInt64, edge_components[2])
-                    edge_label = edge_components[3]
-                    add_edge(graph, n1, n2, Edge(edge_label))
-                end
+                add_edge(graph, n1, n2, Edge(edge_label))
             end
         end
     end

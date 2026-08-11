@@ -1,104 +1,190 @@
 module WlNodeCut
+
 using FlatzincToGraph.GraphType
 using ..Helper
 
-function wl_node_cut_directed_last(g::GraphType.Graph, colors::Dict{String,UInt64}, iterations::Int, training::Bool)::Tuple{Vector{UInt64},Dict{String,Any}}
-    n_nodes = length(g.nodes)
-    node_idx = Dict{UInt64,Int}(node.id => idx for (idx, node) in enumerate(g.nodes))
+@inline function filter_non_cut_node!(i::Int,
+    g_nodes::Vector{Node},
+    in_adj::Vector{Vector{Tuple{Int,UInt}}},
+    non_cut_in_adj::Vector{Vector{Int}})
 
-    # 1. Initial Node Colors based on typer(node.type)
-    for node in g.nodes
-        t_type = typer(node.type)
-        if !haskey(colors, t_type)
-            colors[t_type] = hash(t_type)
-        end
-    end
-    node_colors = [colors[typer(node.type)] for node in g.nodes]
-
-    # Precalculate in-edges and out-degrees for efficiency
-    out_degrees = Dict{UInt64,Int}()
-    in_edges = Dict{UInt64,Vector{UInt64}}()
-    for (from_id, to_id, _) in g.edges
-        out_degrees[from_id] = get(out_degrees, from_id, 0) + 1
-        if !haskey(in_edges, to_id)
-            in_edges[to_id] = UInt64[]
-        end
-        push!(in_edges[to_id], from_id)
-    end
-
-    # 2. WL Propagation Loop
-    for _ in 1:iterations
-        neib_colors = [UInt64[] for _ in 1:n_nodes]
-
-        for (from_id, to_id, _) in g.edges
-            to_node = g.node_dict[to_id]
-            if is_global(to_node.type) || startswith(to_node.type, "lin_") || startswith(to_node.type, "multi_")
-                continue
+    if !is_cut_node(g_nodes[i].type)
+        for (from_i, _) in in_adj[i]
+            if !is_cut_node(g_nodes[from_i].type)
+                push!(non_cut_in_adj[i], from_i)
             end
-            from_i = node_idx[from_id]
-            to_i = node_idx[to_id]
-            push!(neib_colors[to_i], node_colors[from_i])
         end
+    end
+end
 
-        updated_colors = Vector{String}(undef, n_nodes)
-        for i in 1:n_nodes
-            updated_colors[i] = string(node_colors[i], ",", join(sort!(neib_colors[i]), ","))
-        end
+@inline function init_node_color!(i::Int,
+    g_nodes::Vector{Node},
+    globals_from_types::Dict{Symbol,Vector{Symbol}},
+    curr_colors::Vector{UInt64},
+    colors::Dict{UInt64,UInt64},
+    colors_lock::ReentrantLock,
+    training::Bool)
 
+    node = g_nodes[i]
+    if is_cut_node(node.type)
+        g_type = node.type
+        matching_from_types = get(globals_from_types, g_type, Symbol[])
+        color_str = string(g_type) * "," * join(matching_from_types, ",")
+        h_color = hash(color_str)
         if training
-            for uc in unique(updated_colors)
-                if !haskey(colors, uc)
-                    colors[uc] = hash(uc)
+            if !haskey(colors, h_color)
+                lock(colors_lock) do
+                    colors[h_color] = h_color
                 end
             end
+            curr_colors[i] = h_color
+        else
+            curr_colors[i] = get(colors, h_color, hash(g_type))
         end
+    else
+        t = typer(node.type)
+        h_type = hash(t)
+        if training
+            if !haskey(colors, h_type)
+                lock(colors_lock) do
+                    colors[h_type] = h_type
+                end
+            end
+            curr_colors[i] = h_type
+        else
+            curr_colors[i] = get(colors, h_type, h_type)
+        end
+    end
+end
 
-        node_colors = [get(colors, uc, node_colors[i]) for (i, uc) in enumerate(updated_colors)]
+@inline function process_node!(i::Int,
+    g_nodes::Vector{Node},
+    non_cut_in_adj::Vector{Vector{Int}},
+    curr_colors::Vector{UInt64},
+    next_colors::Vector{UInt64},
+    colors::Dict{UInt64,UInt64},
+    colors_lock::ReentrantLock,
+    training::Bool,
+    buffer::Vector{UInt64})
+    node = g_nodes[i]
+    if is_cut_node(node.type)
+        next_colors[i] = curr_colors[i]
+        return
     end
 
-    # 3. Extra feature extraction & global pairs calculation
+    adj_list = non_cut_in_adj[i]
+    neib_buf = view(buffer, 1:length(adj_list))
+    for (k, from_i) in enumerate(adj_list)
+        neib_buf[k] = curr_colors[from_i]
+    end
+    sort!(neib_buf)
+
+    h_key = tailored_hash(curr_colors[i], neib_buf)
+
+    if training
+        if !haskey(colors, h_key)
+            lock(colors_lock) do
+                colors[h_key] = h_key
+            end
+        end
+        next_colors[i] = h_key
+    else
+        next_colors[i] = get(colors, h_key, curr_colors[i])
+    end
+end
+
+function wl_node_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool, num_cores::Int=1)::Tuple{Vector{UInt64},Dict{String,Any}}
+    n_nodes = length(g.nodes)
+    if n_nodes == 0
+        return UInt64[], Dict{String,Any}("globals_pairs" => Dict(), "cpv" => 0.0, "cpp" => 0.0, "n_nodes" => 0)
+    end
+
+    use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.nthreads() > 1
+    colors_lock = ReentrantLock()
+
+    out_degrees = Dict{UInt64,Int}()
+    pairs = Dict{Tuple{Symbol,Symbol},Int}()
+
+    for (from_id, to_id, _) in g.edges
+        out_degrees[from_id] = get(out_degrees, from_id, 0) + 1
+
+        to_node = g.node_dict[to_id]
+        if is_cut_node(to_node.type)
+            from_node = g.node_dict[from_id]
+            pair = (typer(from_node.type), to_node.type)
+            pairs[pair] = get(pairs, pair, 0) + 1
+        end
+    end
+
+    # 1. Parallel non-cut adjacency pre-filtering
+    non_cut_in_adj = [Int[] for _ in 1:n_nodes]
+    if use_parallel
+        Threads.@threads for i in 1:n_nodes
+            filter_non_cut_node!(i, g.nodes, g.in_adj, non_cut_in_adj)
+        end
+    else
+        for i in 1:n_nodes
+            filter_non_cut_node!(i, g.nodes, g.in_adj, non_cut_in_adj)
+        end
+    end
+
+    max_degree = maximum(length(adj_list) for adj_list in non_cut_in_adj; init=0)
+    buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.nthreads()]
+
+    # 2. Statistics calculation
     constraints_per_variable = 0
     constraints_per_par = 0
     n_var = 0
     n_par = 0
-    pairs = Dict{Tuple{String,String},Int}()
-
     for node in g.nodes
         t = typer(node.type)
-        if node.type == "var_node"
+        if node.type === :var_node
             constraints_per_variable += get(out_degrees, node.id, 0)
             n_var += 1
-        elseif t == "literal_node"
+        elseif t === :literal_node
             constraints_per_par += get(out_degrees, node.id, 0)
             n_par += 1
-        elseif is_global(node.type) || startswith(node.type, "lin_") || startswith(node.type, "multi_")
-            incoming = get(in_edges, node.id, UInt64[])
-            for from_id in incoming
-                from_node = g.node_dict[from_id]
-                pair = (typer(from_node.type), node.type)
-                pairs[pair] = get(pairs, pair, 0) + 1
-            end
         end
     end
 
-    # 4. Global node color recalculation
-    globals_set = sort(unique([p[2] for p in keys(pairs)]))
-    for g_type in globals_set
-        matching_from_types = sort([p[1] for (p, count) in pairs if p[2] == g_type])
-        color_str = g_type * "," * join(matching_from_types, ",")
-        h_g = hash(g_type)
-
-        if training && !haskey(colors, color_str)
-            colors[color_str] = hash(color_str)
+    globals_from_types = Dict{Symbol,Vector{Symbol}}()
+    for (pair, _) in pairs
+        g_type = pair[2]
+        if !haskey(globals_from_types, g_type)
+            globals_from_types[g_type] = Symbol[]
         end
-        if haskey(colors, color_str)
-            target_color = colors[color_str]
+        push!(globals_from_types[g_type], pair[1])
+    end
+    for (g_type, v) in globals_from_types
+        sort!(v)
+    end
+
+    # 3. Parallel initial color assignment
+    curr_colors = Vector{UInt64}(undef, n_nodes)
+    if use_parallel
+        Threads.@threads for i in 1:n_nodes
+            init_node_color!(i, g.nodes, globals_from_types, curr_colors, colors, colors_lock, training)
+        end
+    else
+        for i in 1:n_nodes
+            init_node_color!(i, g.nodes, globals_from_types, curr_colors, colors, colors_lock, training)
+        end
+    end
+
+    # 4. Main WL iterations loop
+    next_colors = Vector{UInt64}(undef, n_nodes)
+
+    for _ in 1:iterations
+        if use_parallel
+            Threads.@threads for i in 1:n_nodes
+                process_node!(i, g.nodes, non_cut_in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[Threads.threadid()])
+            end
+        else
             for i in 1:n_nodes
-                if node_colors[i] == h_g
-                    node_colors[i] = target_color
-                end
+                process_node!(i, g.nodes, non_cut_in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[1])
             end
         end
+        curr_colors, next_colors = next_colors, curr_colors
     end
 
     extra_info = Dict{String,Any}(
@@ -108,7 +194,7 @@ function wl_node_cut_directed_last(g::GraphType.Graph, colors::Dict{String,UInt6
         "n_nodes" => n_nodes
     )
 
-    return node_colors, extra_info
+    return curr_colors, extra_info
 end
 
 export wl_node_cut_directed_last

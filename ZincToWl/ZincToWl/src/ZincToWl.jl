@@ -77,19 +77,19 @@ function main()
     end
     colors = Helper.load_colors(colors_path)
     if method == "wl"
-        node_colors = wl_directed_last(g, colors, wl_iterations, training)
+        node_colors = wl_directed_last(g, colors, wl_iterations, training, num_cores)
         println("\n$(join(node_colors, ","))\n")
     elseif method == "wl-n"
-        node_colors = wl_node_directed_last(g, colors, wl_iterations, training)
+        node_colors = wl_node_directed_last(g, colors, wl_iterations, training, num_cores)
         println("\n$(join(node_colors, ","))\n")
     elseif method == "wl-e"
-        node_colors = wl_edge_directed_last(g, colors, wl_iterations, training)
+        node_colors = wl_edge_directed_last(g, colors, wl_iterations, training, num_cores)
         println("\n$(join(node_colors, ","))\n")
     elseif method == "wl-ne"
-        node_colors = wl_node_edge_directed_last(g, colors, wl_iterations, training)
+        node_colors = wl_node_edge_directed_last(g, colors, wl_iterations, training, num_cores)
         println("\n$(join(node_colors, ","))\n")
     elseif method == "wl-nc"
-        node_colors, extra_info = wl_node_cut_directed_last(g, colors, wl_iterations, training)
+        node_colors, extra_info = wl_node_cut_directed_last(g, colors, wl_iterations, training, num_cores)
         println("\n$(join(node_colors, ","))")
         println("==========")
         println("n_nodes: $(extra_info["n_nodes"])")
@@ -100,7 +100,7 @@ function main()
             println("($(p[1]), $(p[2])): $(v)")
         end
     elseif method == "wl-nec"
-        node_colors, extra_info = wl_node_edge_cut_directed_last(g, colors, wl_iterations, training)
+        node_colors, extra_info = wl_node_edge_cut_directed_last(g, colors, wl_iterations, training, num_cores)
         println("\n$(join(node_colors, ","))")
         println("==========")
         println("n_nodes: $(extra_info["n_nodes"])")
@@ -110,7 +110,6 @@ function main()
         for (p, v) in extra_info["globals_pairs"]
             println("($(p[1]), $(p[2])): $(v)")
         end
-
     end
     if training
         Helper.save_colors(colors_path, colors)
