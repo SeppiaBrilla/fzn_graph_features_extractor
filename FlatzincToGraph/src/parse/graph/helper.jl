@@ -28,51 +28,54 @@ function normalize_list(val)
     return [val]
 end
 
-function list_to_node(graph::Graph, components::Vector{Any}, type::String="int")::Node
+function list_to_node(graph::Graph, components::Vector{Any}, type::Symbol=:int)::Node
     arr_label = "array_" * string(get_next_global_id())
-    arr_node = Node(arr_label, "array_node", arr_label, hash(arr_label))
+    arr_node = Node(arr_label, :array_node, arr_label, hash(arr_label))
     add_node(graph, arr_node)
     for comp in components
         node = get_node_for_val(graph, comp, type)
-        add_edge(graph, node.id, arr_node.id, Edge("0"))
+        add_edge(graph, node.id, arr_node.id, Edge(:0))
     end
     return arr_node
 end
+list_to_node(graph::Graph, components::Vector{Any}, type::String) = list_to_node(graph, components, Symbol(type))
 
 function get_type(value::String)
-    return Helper.get_type(value)
+    return Symbol(Helper.get_type(value))
 end
 
-function get_type(value::Variable)::String
-    return value.type
+function get_type(value::Variable)::Symbol
+    return Symbol(value.type)
 end
 
-function get_type(value::Parameter)::String
-    return value.type.type.type
+function get_type(value::Parameter)::Symbol
+    return Symbol(value.type.type.type)
 end
 
 # Helper to get variable node or literal node
-function variable_or_literal(el::String, vars::Dict{String,Variable}, type::String)::Node
+function variable_or_literal(el::String, vars::Dict{String,Variable}, type::Symbol)::Node
     val = get(vars, el, nothing)
     if !isnothing(val)
         id = hash(val.name)
-        return Node(val.name, val.type, "$id: $(val.name) -- var_node -- $(val.type) -- $(val.domain_size)", id)
+        return Node(val.name, Symbol(val.type), "$id: $(val.name) -- var_node -- $(val.type) -- $(val.domain_size)", id)
     end
     id = hash(el)
     return Node(el, type, "$id: $el -- literal_node -- $type -- $el", id)
 end
+variable_or_literal(el::String, vars::Dict{String,Variable}, type::String) = variable_or_literal(el, vars, Symbol(type))
 
 # Helper to get parameter node or literal node
-function parameter_or_literal(el::String, parameters::Dict{String,Parameter}, type::String)::Node
+function parameter_or_literal(el::String, parameters::Dict{String,Parameter}, type::Symbol)::Node
     val = get(parameters, el, nothing)
     if !isnothing(val)
         id = hash(val.name)
         value = val.type.is_array ? "array of $(val.type.type.type)" : val.value
-        return Node(val.name, val.type.type.type, "$id: $(val.name) -- parameter_node -- $(val.type.type.type) -- $(value)", id)
+        return Node(val.name, Symbol(val.type.type.type), "$id: $(val.name) -- parameter_node -- $(val.type.type.type) -- $(value)", id)
     end
     id = hash(el)
     return Node(el, type, "$id: $el -- literal_node -- $type -- $el", id)
 end
+parameter_or_literal(el::String, parameters::Dict{String,Parameter}, type::String) = parameter_or_literal(el, parameters, Symbol(type))
 
 # Resolve a single string component to a Variable, Parameter, or String literal
 function resolve_component(comp::String, parameters::Dict{String,Parameter}, vars::Dict{String,Variable})
@@ -98,7 +101,7 @@ function get_node_for_val(graph::Graph, val::Variable)::Node
     if !isnothing(node)
         return node
     end
-    node = Node(val.name, val.type, "$id: $(val.name) -- var_node -- $(val.type) -- $(val.domain_size)", id)
+    node = Node(val.name, Symbol(val.type), "$id: $(val.name) -- var_node -- $(val.type) -- $(val.domain_size)", id)
     #add_node(graph, node)
     return node
 end
@@ -110,23 +113,25 @@ function get_node_for_val(graph::Graph, val::Parameter)::Node
         return node
     end
     value = val.type.is_array ? "array of $(val.type.type.type)" : val.value
-    node = Node(val.name, val.type.type.type, "$id: $(val.name) -- parameter_node -- $(val.type.type.type) -- $(value)", id)
+    node = Node(val.name, Symbol(val.type.type.type), "$id: $(val.name) -- parameter_node -- $(val.type.type.type) -- $(value)", id)
     add_node(graph, node)
     return node
 end
 
-function get_node_for_val(graph::Graph, val::Variable, type::String)::Node
+function get_node_for_val(graph::Graph, val::Variable, type::Symbol)::Node
     return get_node_for_val(graph, val)
 end
+get_node_for_val(graph::Graph, val::Variable, type::String)::Node = get_node_for_val(graph, val, Symbol(type))
 
-function get_node_for_val(graph::Graph, val::Parameter, type::String)::Node
+function get_node_for_val(graph::Graph, val::Parameter, type::Symbol)::Node
     if !val.type.is_array && val.type.type.type == "int" && val.value isa AbstractString
         return get_node_for_val(graph, string(val.value), type)
     end
     return get_node_for_val(graph, val)
 end
+get_node_for_val(graph::Graph, val::Parameter, type::String)::Node = get_node_for_val(graph, val, Symbol(type))
 
-function get_node_for_val(graph::Graph, el::String, type::String="int")::Node
+function get_node_for_val(graph::Graph, el::String, type::Symbol=:int)::Node
     id = hash(el)
     node = get(graph.node_dict, id, nothing)
     if !isnothing(node)
@@ -136,8 +141,9 @@ function get_node_for_val(graph::Graph, el::String, type::String="int")::Node
     add_node(graph, node)
     return node
 end
+get_node_for_val(graph::Graph, el::String, type::String)::Node = get_node_for_val(graph, el, Symbol(type))
 
-function build_generic_value(idx::UInt64, label::String, type::String)::String
+function build_generic_value(idx::UInt64, label::String, type::Union{Symbol,String})::String
     return "$idx: $label -- $type"
 end
 

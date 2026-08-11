@@ -21,16 +21,16 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
     variables = Dict{String,Variable}()
     parameters = Dict{String,Parameter}()
     graph = Graph()
-    
+
     constraint_lines = String[]
     solve_line = Ref{Union{String,Nothing}}(nothing)
-    
+
     open(file_name) do f
         for line in eachline(f)
             if isempty(line)
                 continue
             end
-            
+
             # Fast check for comments/predicates/constraints/vars/solve
             first_char = line[1]
             if first_char == '%'
@@ -42,7 +42,7 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
                 if !isnothing(var)
                     variables[var.name] = var
                     id = hash(var.name)
-                    add_node(graph, Node(var.name, "var_node", "$id: $(var.name) -- var_node -- $(var.type) -- $(var.domain_size)", id))
+                    add_node(graph, Node(var.name, :var_node, "$id: $(var.name) -- var_node -- $(var.type) -- $(var.domain_size)", id))
                 end
             elseif startswith(line, "solve")
                 solve_line[] = line
@@ -57,15 +57,15 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
             end
         end
     end
-    
+
     # Pre-size the graph dicts
     sizehint!(graph.nodes, length(variables) + length(constraint_lines))
     sizehint!(graph.node_dict, length(variables) + length(constraint_lines))
     sizehint!(graph.edges, length(constraint_lines) * 2)
     sizehint!(graph.edge_set, length(constraint_lines) * 2)
-    
+
     num_constraints = length(constraint_lines)
-    
+
     if num_cores <= 1 || num_constraints < 1000
         # Sequential parsing
         task_local_storage(:task_prefix, UInt64(0))
@@ -87,17 +87,17 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
             chunk_size = div(num_constraints + actual_cores - 1, actual_cores)
             tasks = []
             local_graphs = [Graph() for _ in 1:actual_cores]
-            
+
             for c in 1:actual_cores
                 start_idx = (c - 1) * chunk_size + 1
                 end_idx = min(c * chunk_size, num_constraints)
-                
+
                 if start_idx <= end_idx
                     t = Threads.@spawn begin
                         # Initialize unique counter prefix and counter for this task
                         task_local_storage(:task_prefix, UInt64(c) * 1_000_000_000)
                         task_local_storage(:task_counter, 0)
-                        
+
                         lg = local_graphs[c]
                         # Pre-size local collections
                         local_len = end_idx - start_idx + 1
@@ -105,7 +105,7 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
                         sizehint!(lg.node_dict, local_len)
                         sizehint!(lg.edges, local_len * 2)
                         sizehint!(lg.edge_set, local_len * 2)
-                        
+
                         for i in start_idx:end_idx
                             parse_constraint(constraint_lines[i], parameters, variables, lg)
                         end
@@ -113,12 +113,12 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
                     push!(tasks, t)
                 end
             end
-            
+
             # Wait for all tasks to complete
             for t in tasks
                 wait(t)
             end
-            
+
             # Merge local graphs into main graph
             for lg in local_graphs
                 for node in lg.nodes
@@ -130,7 +130,7 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
             end
         end
     end
-    
+
     # Process solve line at the end
     if !isnothing(solve_line[])
         solve = parse_solve(solve_line[], variables)
@@ -138,23 +138,25 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
             if solve.type == "maximize"
                 label = "Maximise($(solve.objectiveVar.name))"
                 id = hash(label)
-                add_node(graph, Node(label, "maximise_node", "$id: $(label) -- maximise_node", id))
-                add_edge(graph, id, hash(solve.objectiveVar.name), Edge("0"))
+                add_node(graph, Node(label, :maximise_node, "$id: $(label) -- maximise_node", id))
+                add_edge(graph, id, hash(solve.objectiveVar.name), Edge(EDGE_0))
             elseif solve.type == "minimize"
                 label = "Minimise($(solve.objectiveVar.name))"
                 id = hash(label)
-                add_node(graph, Node(label, "minimise_node", "$id: $(label) -- minimise_node", id))
-                add_edge(graph, id, hash(solve.objectiveVar.name), Edge("0"))
+                add_node(graph, Node(label, :minimise_node, "$id: $(label) -- minimise_node", id))
+                add_edge(graph, id, hash(solve.objectiveVar.name), Edge(EDGE_0))
             end
         end
     end
-    
+
     return graph
 end
 
 function write_graph(graph::Graph, filepath::AbstractString)
     open(filepath, "w") do file
         @assert iswritable(file) "file $filepath is not writable"
+
+        write(file, "##$(length(graph.nodes)) - $(length(graph.edges))\n")
 
         write(file, "nodes:\n")
 
