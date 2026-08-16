@@ -72,7 +72,7 @@ function load_colors(file_path::String)::Dict{UInt64,UInt64}
             d = Dict{UInt64,UInt64}()
             for (k, v) in obj
                 h_k = k isa UInt64 ? k : hash(k)
-                d[h_k] = v
+                d[h_k] = UInt64(v)
             end
             return d
         end

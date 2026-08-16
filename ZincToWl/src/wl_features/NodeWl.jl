@@ -50,14 +50,14 @@ function wl_node_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, 
     next_colors = Vector{UInt64}(undef, n_nodes)
     colors_lock = ReentrantLock()
 
-    use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.nthreads() > 1
+    use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.maxthreadid() > 1
 
     max_degree = maximum(length(adj_list) for adj_list in in_adj; init=0)
-    buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.nthreads()]
+    buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.maxthreadid()]
 
     for _ in 1:iterations
         if use_parallel
-            Threads.@threads for i in 1:n_nodes
+            Threads.@threads :static for i in 1:n_nodes
                 process_node!(i, in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[Threads.threadid()])
             end
         else

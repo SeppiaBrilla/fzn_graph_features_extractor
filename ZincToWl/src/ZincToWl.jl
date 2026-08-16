@@ -23,7 +23,7 @@ using .WlNodeCut
 using .WlNodeEdgeCut
 using .Helper
 
-function parse_commandline()
+function parse_commandline(args::Vector{String})
     s = ArgParseSettings(
         description="ZincToWl: Convert FlatZinc models to Weisfeiler-Lehman graph representations."
     )
@@ -31,7 +31,7 @@ function parse_commandline()
     @add_arg_table! s begin
         "input_file"
         help = "Path to input FlatZinc (.fzn) or graph (.graph) file"
-        required = true
+        required = false
         "--num-cores", "-c"
         help = "Number of cores for parallel processing"
         arg_type = Int
@@ -55,13 +55,28 @@ function parse_commandline()
         default = false
     end
 
-    return parse_args(s)
+    return parse_args(args, s)
+end
+function format_colors(colors_arr::Vector{UInt64})::String
+    counts = Dict{UInt64, Int}()
+    for c in colors_arr
+        counts[c] = get(counts, c, 0) + 1
+    end
+    
+    io = IOBuffer()
+    for (c, count) in counts
+        print(io, c, ':', count, '\n')
+    end
+    return String(take!(io))
 end
 
-function main()
-    parsed_args = parse_commandline()
+function main(args::Vector{String}=copy(ARGS))
+    parsed_args = parse_commandline(args)
 
     input_file = parsed_args["input_file"]
+    if isnothing(input_file) || isempty(input_file)
+        error("input_file is required unless starting a server")
+    end
     num_cores = parsed_args["num-cores"]
     wl_iterations = parsed_args["wl-iterations"]
     method = parsed_args["method"]
@@ -78,19 +93,19 @@ function main()
     colors = Helper.load_colors(colors_path)
     if method == "wl"
         node_colors = wl_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(join(node_colors, ","))\n")
+        println("\n$(format_colors(node_colors))\n")
     elseif method == "wl-n"
         node_colors = wl_node_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(join(node_colors, ","))\n")
+        println("\n$(format_colors(node_colors))\n")
     elseif method == "wl-e"
         node_colors = wl_edge_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(join(node_colors, ","))\n")
+        println("\n$(format_colors(node_colors))\n")
     elseif method == "wl-ne"
         node_colors = wl_node_edge_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(join(node_colors, ","))\n")
+        println("\n$(format_colors(node_colors))\n")
     elseif method == "wl-nc"
         node_colors, extra_info = wl_node_cut_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(join(node_colors, ","))")
+        println("\n$(format_colors(node_colors))")
         println("==========")
         println("n_nodes: $(extra_info["n_nodes"])")
         println("cpv: $(extra_info["cpv"])")
@@ -101,7 +116,7 @@ function main()
         end
     elseif method == "wl-nec"
         node_colors, extra_info = wl_node_edge_cut_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(join(node_colors, ","))")
+        println("\n$(format_colors(node_colors))")
         println("==========")
         println("n_nodes: $(extra_info["n_nodes"])")
         println("cpv: $(extra_info["cpv"])")
@@ -116,9 +131,49 @@ function main()
     end
 end
 
+using Sockets
+
+function start_server(socket_path::String)
+    rm(socket_path, force=true)
+    server = listen(socket_path)
+    println("Server listening on $socket_path")
+    while true
+        conn = accept(server)
+        @async begin
+            try
+                line = readline(conn)
+                args_parsed = String.(split(line, '\0'))
+                filter!(x -> !isempty(x), args_parsed)
+
+                original_stdout = stdout
+                original_stderr = stderr
+                redirect_stdout(conn)
+                redirect_stderr(conn)
+
+                try
+                    main(args_parsed)
+                catch e
+                    println(stderr, "ERROR: $e")
+                    Base.showerror(stderr, e, catch_backtrace())
+                finally
+                    redirect_stdout(original_stdout)
+                    redirect_stderr(original_stderr)
+                    close(conn)
+                end
+            catch e
+                println(stderr, "Connection error: $e")
+            end
+        end
+    end
+end
+
 function julia_main()::Cint
     try
-        main()
+        if length(ARGS) >= 2 && ARGS[1] == "--server"
+            start_server(ARGS[2])
+        else
+            main()
+        end
     catch e
         Base.showerror(stderr, e, catch_backtrace())
         return 1
@@ -127,7 +182,12 @@ function julia_main()::Cint
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main()
+    if length(ARGS) >= 2 && ARGS[1] == "--server"
+        start_server(ARGS[2])
+    else
+        main()
+    end
 end
+
 
 end # module ZincToWl

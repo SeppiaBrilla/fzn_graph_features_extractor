@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "f69b14d95eddab00fa588124d28a80d8fc7c20cb"
+project_hash = "4c0c1569bfb26e41a9bee3725fe7c7d1a54438e7"
 
 [[deps.ArgParse]]
 deps = ["Logging", "TextWrap"]
@@ -178,6 +178,10 @@ version = "1.3.0"
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 version = "1.11.0"
 
+[[deps.Sockets]]
+uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
+version = "1.11.0"
+
 [[deps.StyledStrings]]
 uuid = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 version = "1.11.0"
@@ -207,7 +211,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.ZincToWl]]
-deps = ["ArgParse", "FlatzincToGraph", "PackageCompiler"]
+deps = ["ArgParse", "FlatzincToGraph", "PackageCompiler", "Serialization"]
 path = "."
 uuid = "39c23178-992c-4e63-a3ee-0a2cce8e9c4c"
 version = "0.1.0"

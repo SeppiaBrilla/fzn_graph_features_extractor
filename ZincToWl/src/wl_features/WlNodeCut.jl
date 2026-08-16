@@ -1,13 +1,17 @@
-module WlNodeEdgeCut
+module WlNodeCut
 
 using FlatzincToGraph.GraphType
 using ..Helper
 
-@inline function filter_non_cut_node!(i::Int, g_nodes, in_adj, non_cut_in_adj)
+@inline function filter_non_cut_node!(i::Int,
+    g_nodes::Vector{Node},
+    in_adj::Vector{Vector{Tuple{Int,UInt}}},
+    non_cut_in_adj::Vector{Vector{Int}})
+
     if !is_cut_node(g_nodes[i].type)
-        for (from_i, h_edge) in in_adj[i]
+        for (from_i, _) in in_adj[i]
             if !is_cut_node(g_nodes[from_i].type)
-                push!(non_cut_in_adj[i], (from_i, h_edge))
+                push!(non_cut_in_adj[i], from_i)
             end
         end
     end
@@ -55,14 +59,13 @@ end
 
 @inline function process_node!(i::Int,
     g_nodes::Vector{Node},
-    non_cut_in_adj::Vector{Vector{Tuple{Int,UInt64}}},
+    non_cut_in_adj::Vector{Vector{Int}},
     curr_colors::Vector{UInt64},
     next_colors::Vector{UInt64},
     colors::Dict{UInt64,UInt64},
     colors_lock::ReentrantLock,
     training::Bool,
     buffer::Vector{UInt64})
-
     node = g_nodes[i]
     if is_cut_node(node.type)
         next_colors[i] = curr_colors[i]
@@ -71,8 +74,8 @@ end
 
     adj_list = non_cut_in_adj[i]
     neib_buf = view(buffer, 1:length(adj_list))
-    for (k, (from_i, h_edge)) in enumerate(adj_list)
-        neib_buf[k] = hash(curr_colors[from_i], h_edge)
+    for (k, from_i) in enumerate(adj_list)
+        neib_buf[k] = curr_colors[from_i]
     end
     sort!(neib_buf)
 
@@ -90,15 +93,14 @@ end
     end
 end
 
-function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool, num_cores::Int=1)::Tuple{Vector{UInt64},Dict{String,Any}}
+function wl_node_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool, num_cores::Int=1)::Tuple{Vector{UInt64},Dict{String,Any}}
     n_nodes = length(g.nodes)
     if n_nodes == 0
         return UInt64[], Dict{String,Any}("globals_pairs" => Dict(), "cpv" => 0.0, "cpp" => 0.0, "n_nodes" => 0)
     end
 
-    use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.nthreads() > 1
+    use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.maxthreadid() > 1
     colors_lock = ReentrantLock()
-
 
     out_degrees = Dict{UInt64,Int}()
     pairs = Dict{Tuple{Symbol,Symbol},Int}()
@@ -115,11 +117,9 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
     end
 
     # 1. Parallel non-cut adjacency pre-filtering
-    non_cut_in_adj = [Tuple{Int,UInt64}[] for _ in 1:n_nodes]
-
-
+    non_cut_in_adj = [Int[] for _ in 1:n_nodes]
     if use_parallel
-        Threads.@threads for i in 1:n_nodes
+        Threads.@threads :static for i in 1:n_nodes
             filter_non_cut_node!(i, g.nodes, g.in_adj, non_cut_in_adj)
         end
     else
@@ -129,7 +129,7 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
     end
 
     max_degree = maximum(length(adj_list) for adj_list in non_cut_in_adj; init=0)
-    buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.nthreads()]
+    buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.maxthreadid()]
 
     # 2. Statistics calculation
     constraints_per_variable = 0
@@ -162,7 +162,7 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
     # 3. Parallel initial color assignment
     curr_colors = Vector{UInt64}(undef, n_nodes)
     if use_parallel
-        Threads.@threads for i in 1:n_nodes
+        Threads.@threads :static for i in 1:n_nodes
             init_node_color!(i, g.nodes, globals_from_types, curr_colors, colors, colors_lock, training)
         end
     else
@@ -176,7 +176,7 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
 
     for _ in 1:iterations
         if use_parallel
-            Threads.@threads for i in 1:n_nodes
+            Threads.@threads :static for i in 1:n_nodes
                 process_node!(i, g.nodes, non_cut_in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[Threads.threadid()])
             end
         else
@@ -197,6 +197,6 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
     return curr_colors, extra_info
 end
 
-export wl_node_edge_cut_directed_last
+export wl_node_cut_directed_last
 
 end

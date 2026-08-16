@@ -8,15 +8,16 @@ ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 FlatzincToGraph = "6ea5acb2-633c-473f-8148-2c2fe4b1a296"
 PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 
 [compat]
 ArgParse = "1.2.0"
 PackageCompiler = "2.4.0"
 Serialization = "1.11.0"
+Sockets = "1.11.0"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
-
