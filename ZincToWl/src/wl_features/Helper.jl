@@ -164,7 +164,9 @@ function extract_extra_info(g)::Dict{String,Any}
                 end
             end
             
-            v_sum_domdeg_vars += dom_size / max(1.0, float(deg))
+            if deg > 0
+                v_sum_domdeg_vars += dom_size / float(deg)
+            end
             
             if node.id == obj_var_id
                 obj_deg = float(deg)
@@ -191,12 +193,12 @@ function extract_extra_info(g)::Dict{String,Any}
         end
         for (d, count) in freq
             p = count / n_var
-            v_ent_deg_vars -= p * log(p)
+            v_ent_deg_vars -= p * log2(p)
         end
     end
     
     mean_deg = n_var > 0 ? sum(var_degrees) / n_var : 0.0
-    var_deg = n_var > 1 ? sum((d - mean_deg)^2 for d in var_degrees) / (n_var - 1) : 0.0
+    var_deg = n_var > 0 ? sum((d - mean_deg)^2 for d in var_degrees) / n_var : 0.0
     std_deg = sqrt(var_deg)
     
     o_deg_std = 0.0

@@ -111,7 +111,7 @@ function main(args::Vector{String}=copy(ARGS))
     elseif method == "wl-nec"
         node_colors = wl_node_edge_cut_directed_last(g, colors, wl_iterations, training, num_cores)
     end
-    
+
     print("\n$(format_colors(node_colors, false))")
     print(",\n\t\"n_nodes\":$(extra_info["n_nodes"])")
     print(",\n\t\"cpv\":$(extra_info["cpv"])")
@@ -123,8 +123,10 @@ function main(args::Vector{String}=copy(ARGS))
     print(",\n\t\"o_dom_deg\":$(extra_info["o_dom_deg"])")
     print(",\n\t\"v_ent_deg_vars\":$(extra_info["v_ent_deg_vars"])")
     print(",\n\t\"v_sum_domdeg_vars\":$(extra_info["v_sum_domdeg_vars"])")
-    for (p, v) in extra_info["globals_pairs"]
-        print(",\n\t\"($(p[1]), $(p[2]))\":$(v)")
+    if method == "wl-nc" || method == "wl-nec"
+        for (p, v) in extra_info["globals_pairs"]
+            print(",\n\t\"($(p[1]), $(p[2]))\":$(v)")
+        end
     end
     print("\n}")
     if training

@@ -30,7 +30,8 @@ try
         build_dir,
         force=true,
         incremental=false, # Compiles a fully independent system image
-        filter_stdlibs=false # Ensures core stdlibs like UUIDs are kept intact
+        filter_stdlibs=false, # Ensures core stdlibs like UUIDs are kept intact
+        precompile_execution_file="precompile_script.jl"
     )
     @info "Success! Executable generated at: ./$build_dir/bin/FlatzincToGraph"
 catch e
