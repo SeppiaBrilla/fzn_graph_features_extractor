@@ -84,6 +84,151 @@ function save_colors(file_path::String, colors::Dict{UInt64,UInt64})::Nothing
     serialize(file_path, colors)
 end
 
-export typer, is_global, is_cut_node, GLOBAL_NODES, load_colors, save_colors, tailored_hash, HASH_EDGE_0, HASH_EDGE_1, HASH_EDGE_2, fast_edge_hash
+function extract_extra_info(g)::Dict{String,Any}
+    n_nodes = length(g.nodes)
+    if n_nodes == 0
+        return Dict{String,Any}(
+            "globals_pairs" => Dict(),
+            "cpv" => 0.0, "cpp" => 0.0, "n_nodes" => 0,
+            "d_ratio_int_vars" => 0.0, "d_ratio_bool_vars" => 0.0,
+            "o_deg_cons" => 0.0, "o_deg_std" => 0.0, "o_dom_deg" => 0.0,
+            "v_ent_deg_vars" => 0.0, "v_sum_domdeg_vars" => 0.0
+        )
+    end
+
+    out_degrees = Dict{UInt64,Int}()
+    pairs = Dict{Tuple{Symbol,Symbol},Int}()
+    
+    obj_var_id = UInt64(0)
+
+    for (from_id, to_id, _) in g.edges
+        out_degrees[from_id] = get(out_degrees, from_id, 0) + 1
+
+        to_node = g.node_dict[to_id]
+        if is_cut_node(to_node.type)
+            from_node = g.node_dict[from_id]
+            pair = (typer(from_node.type), to_node.type)
+            pairs[pair] = get(pairs, pair, 0) + 1
+        end
+        
+        if g.node_dict[from_id].type === :maximise_node || g.node_dict[from_id].type === :minimise_node
+            obj_var_id = to_id
+        end
+    end
+
+    in_degrees = Dict{UInt64,Int}()
+    for (from_id, to_id, _) in g.edges
+        in_degrees[to_id] = get(in_degrees, to_id, 0) + 1
+    end
+    n_constraints = 0
+    for node in g.nodes
+        if get(in_degrees, node.id, 0) > 0 && get(out_degrees, node.id, 0) == 0
+            n_constraints += 1
+        end
+    end
+
+    constraints_per_variable = 0
+    constraints_per_par = 0
+    n_var = 0
+    n_par = 0
+    
+    int_vars = 0
+    bool_vars = 0
+    
+    var_degrees = Int[]
+    
+    v_sum_domdeg_vars = 0.0
+    obj_deg = 0.0
+    obj_dom = 0.0
+
+    for node in g.nodes
+        t = typer(node.type)
+        if node.type === :var_node
+            deg = get(out_degrees, node.id, 0)
+            constraints_per_variable += deg
+            n_var += 1
+            push!(var_degrees, deg)
+            
+            parts = split(node.value, " -- ")
+            dom_size = 1.0
+            if length(parts) >= 4
+                dom_type = parts[3]
+                if dom_type == "int"
+                    int_vars += 1
+                elseif dom_type == "bool"
+                    bool_vars += 1
+                end
+                dom_size_parsed = tryparse(Float64, parts[4])
+                if !isnothing(dom_size_parsed)
+                    dom_size = dom_size_parsed
+                end
+            end
+            
+            v_sum_domdeg_vars += dom_size / max(1.0, float(deg))
+            
+            if node.id == obj_var_id
+                obj_deg = float(deg)
+                obj_dom = float(dom_size)
+            end
+            
+        elseif t === :literal_node
+            constraints_per_par += get(out_degrees, node.id, 0)
+            n_par += 1
+        end
+    end
+
+    cpv = n_var > 0 ? constraints_per_variable / n_var : 0.0
+    cpp = n_par > 0 ? constraints_per_par / n_par : 0.0
+    
+    d_ratio_int_vars = n_var > 0 ? int_vars / n_var : 0.0
+    d_ratio_bool_vars = n_var > 0 ? bool_vars / n_var : 0.0
+    
+    v_ent_deg_vars = 0.0
+    if n_var > 0
+        freq = Dict{Int,Int}()
+        for d in var_degrees
+            freq[d] = get(freq, d, 0) + 1
+        end
+        for (d, count) in freq
+            p = count / n_var
+            v_ent_deg_vars -= p * log(p)
+        end
+    end
+    
+    mean_deg = n_var > 0 ? sum(var_degrees) / n_var : 0.0
+    var_deg = n_var > 1 ? sum((d - mean_deg)^2 for d in var_degrees) / (n_var - 1) : 0.0
+    std_deg = sqrt(var_deg)
+    
+    o_deg_std = 0.0
+    if obj_var_id != 0 && std_deg > 0
+        o_deg_std = (obj_deg - mean_deg) / std_deg
+    end
+    
+    o_deg_cons = 0.0
+    if obj_var_id != 0 && n_constraints > 0
+        o_deg_cons = obj_deg / n_constraints
+    end
+    
+    o_dom_deg = 0.0
+    if obj_var_id != 0 && obj_deg > 0
+        o_dom_deg = obj_dom / obj_deg
+    end
+
+    return Dict{String,Any}(
+        "globals_pairs" => pairs,
+        "cpv" => cpv,
+        "cpp" => cpp,
+        "n_nodes" => n_nodes,
+        "d_ratio_int_vars" => d_ratio_int_vars,
+        "d_ratio_bool_vars" => d_ratio_bool_vars,
+        "o_deg_cons" => o_deg_cons,
+        "o_deg_std" => o_deg_std,
+        "o_dom_deg" => o_dom_deg,
+        "v_ent_deg_vars" => v_ent_deg_vars,
+        "v_sum_domdeg_vars" => v_sum_domdeg_vars
+    )
+end
+
+export typer, is_global, is_cut_node, GLOBAL_NODES, load_colors, save_colors, tailored_hash, HASH_EDGE_0, HASH_EDGE_1, HASH_EDGE_2, fast_edge_hash, extract_extra_info
 
 end

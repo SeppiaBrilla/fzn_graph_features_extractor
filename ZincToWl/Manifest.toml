@@ -43,7 +43,7 @@ version = "1.11.0"
 
 [[deps.FlatzincToGraph]]
 deps = ["PackageCompiler", "Parsers", "UUIDs"]
-path = "../../FlatzincToGraph"
+path = "../FlatzincToGraph"
 uuid = "6ea5acb2-633c-473f-8148-2c2fe4b1a296"
 version = "0.1.0"
 

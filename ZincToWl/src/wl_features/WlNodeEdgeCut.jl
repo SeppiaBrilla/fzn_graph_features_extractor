@@ -90,10 +90,10 @@ end
     end
 end
 
-function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool, num_cores::Int=1)::Tuple{Vector{UInt64},Dict{String,Any}}
+function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool, num_cores::Int=1)::Vector{UInt64}
     n_nodes = length(g.nodes)
     if n_nodes == 0
-        return UInt64[], Dict{String,Any}("globals_pairs" => Dict(), "cpv" => 0.0, "cpp" => 0.0, "n_nodes" => 0)
+        return UInt64[]
     end
 
     use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.maxthreadid() > 1
@@ -187,14 +187,7 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
         curr_colors, next_colors = next_colors, curr_colors
     end
 
-    extra_info = Dict{String,Any}(
-        "globals_pairs" => pairs,
-        "cpv" => n_var > 0 ? constraints_per_variable / n_var : 0.0,
-        "cpp" => n_par > 0 ? constraints_per_par / n_par : 0.0,
-        "n_nodes" => n_nodes
-    )
-
-    return curr_colors, extra_info
+    return curr_colors
 end
 
 export wl_node_edge_cut_directed_last

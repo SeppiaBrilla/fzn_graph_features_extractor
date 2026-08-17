@@ -119,22 +119,26 @@ end
         # Node Cut WL
         dict1_nc = Dict{UInt64,UInt64}()
         dict2_nc = Dict{UInt64,UInt64}()
-        cnc_seq, info_seq = wl_node_cut_directed_last(g_ring, dict1_nc, 3, true, 1)
-        cnc_par, info_par = wl_node_cut_directed_last(g_ring, dict2_nc, 3, true, 4)
+        cnc_seq = wl_node_cut_directed_last(g_ring, dict1_nc, 3, true, 1)
+        cnc_par = wl_node_cut_directed_last(g_ring, dict2_nc, 3, true, 4)
+        info_seq = extract_extra_info(g_ring)
+        info_par = extract_extra_info(g_ring)
         @test cnc_seq == cnc_par
         @test info_seq["n_nodes"] == info_par["n_nodes"]
 
         # Node-Edge Cut WL
         dict1_nec = Dict{UInt64,UInt64}()
         dict2_nec = Dict{UInt64,UInt64}()
-        cnec_seq, info_seq2 = wl_node_edge_cut_directed_last(g_ring, dict1_nec, 3, true, 1)
-        cnec_par, info_par2 = wl_node_edge_cut_directed_last(g_ring, dict2_nec, 3, true, 4)
+        cnec_seq = wl_node_edge_cut_directed_last(g_ring, dict1_nec, 3, true, 1)
+        cnec_par = wl_node_edge_cut_directed_last(g_ring, dict2_nec, 3, true, 4)
+        info_seq2 = extract_extra_info(g_ring)
+        info_par2 = extract_extra_info(g_ring)
         @test cnec_seq == cnec_par
         @test info_seq2["n_nodes"] == info_par2["n_nodes"]
     end
 
     @testset "3. Real Model FlatZinc Feature Extraction Tests" begin
-        fzn_path = joinpath(@__DIR__, "../../../FlatzincToGraph/test/fixtures/simple_bool_sat.fzn")
+        fzn_path = joinpath(@__DIR__, "../../FlatzincToGraph/test/fixtures/simple_bool_sat.fzn")
         g_fzn = flatzinc_to_graph(fzn_path, 1)
         @test length(g_fzn.nodes) > 0
 
@@ -146,5 +150,22 @@ end
         # Inference mode check
         node_colors_test = wl_directed_last(g_fzn, colors, 2, false, 1)
         @test length(node_colors_test) == length(g_fzn.nodes)
+    end
+
+    @testset "4. Extra Tabular Features Validation" begin
+        fzn_path_knapsack = joinpath(@__DIR__, "../../FlatzincToGraph/test/fixtures/knapsack_int_opt.fzn")
+        g_knapsack = flatzinc_to_graph(fzn_path_knapsack, 1)
+        
+        info = extract_extra_info(g_knapsack)
+        
+        # In knapsack, all 4 vars (item1, item2, item3, total_value) are ints (0..1 and 0..12 bounds -> ints)
+        @test info["d_ratio_int_vars"] == 1.0
+        @test info["d_ratio_bool_vars"] == 0.0
+        
+        # Objective is total_value. It should have a degree > 0 since it is constrained in int_lin_eq.
+        # It has domain 0..12 so size is 13.
+        @test info["o_deg_cons"] > 0.0
+        @test info["o_dom_deg"] > 0.0
+        @test info["v_sum_domdeg_vars"] > 0.0
     end
 end

@@ -57,15 +57,20 @@ function parse_commandline(args::Vector{String})
 
     return parse_args(args, s)
 end
-function format_colors(colors_arr::Vector{UInt64})::String
-    counts = Dict{UInt64, Int}()
+function format_colors(colors_arr::Vector{UInt64}, close::Bool)::String
+    counts = Dict{UInt64,Int}()
     for c in colors_arr
         counts[c] = get(counts, c, 0) + 1
     end
-    
+
     io = IOBuffer()
-    for (c, count) in counts
-        print(io, c, ':', count, '\n')
+    (c, count), remaining_pairs = Iterators.peel(counts)
+    print(io, "{\n\t\"$c\":$count")
+    for (c, count) in remaining_pairs
+        print(io, ",\n\t\"", c, "\":", count)
+    end
+    if close
+        print(io, "\n}")
     end
     return String(take!(io))
 end
@@ -91,41 +96,37 @@ function main(args::Vector{String}=copy(ARGS))
         error("Unknown file type: $input_file")
     end
     colors = Helper.load_colors(colors_path)
+    extra_info = Helper.extract_extra_info(g)
+
     if method == "wl"
         node_colors = wl_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(format_colors(node_colors))\n")
     elseif method == "wl-n"
         node_colors = wl_node_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(format_colors(node_colors))\n")
     elseif method == "wl-e"
         node_colors = wl_edge_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(format_colors(node_colors))\n")
     elseif method == "wl-ne"
         node_colors = wl_node_edge_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(format_colors(node_colors))\n")
     elseif method == "wl-nc"
-        node_colors, extra_info = wl_node_cut_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(format_colors(node_colors))")
-        println("==========")
-        println("n_nodes: $(extra_info["n_nodes"])")
-        println("cpv: $(extra_info["cpv"])")
-        println("cpp: $(extra_info["cpp"])")
-        println("----------")
-        for (p, v) in extra_info["globals_pairs"]
-            println("($(p[1]), $(p[2])): $(v)")
-        end
+        node_colors = wl_node_cut_directed_last(g, colors, wl_iterations, training, num_cores)
     elseif method == "wl-nec"
-        node_colors, extra_info = wl_node_edge_cut_directed_last(g, colors, wl_iterations, training, num_cores)
-        println("\n$(format_colors(node_colors))")
-        println("==========")
-        println("n_nodes: $(extra_info["n_nodes"])")
-        println("cpv: $(extra_info["cpv"])")
-        println("cpp: $(extra_info["cpp"])")
-        println("----------")
-        for (p, v) in extra_info["globals_pairs"]
-            println("($(p[1]), $(p[2])): $(v)")
-        end
+        node_colors = wl_node_edge_cut_directed_last(g, colors, wl_iterations, training, num_cores)
     end
+    
+    print("\n$(format_colors(node_colors, false))")
+    print(",\n\t\"n_nodes\":$(extra_info["n_nodes"])")
+    print(",\n\t\"cpv\":$(extra_info["cpv"])")
+    print(",\n\t\"cpp\":$(extra_info["cpp"])")
+    print(",\n\t\"d_ratio_int_vars\":$(extra_info["d_ratio_int_vars"])")
+    print(",\n\t\"d_ratio_bool_vars\":$(extra_info["d_ratio_bool_vars"])")
+    print(",\n\t\"o_deg_cons\":$(extra_info["o_deg_cons"])")
+    print(",\n\t\"o_deg_std\":$(extra_info["o_deg_std"])")
+    print(",\n\t\"o_dom_deg\":$(extra_info["o_dom_deg"])")
+    print(",\n\t\"v_ent_deg_vars\":$(extra_info["v_ent_deg_vars"])")
+    print(",\n\t\"v_sum_domdeg_vars\":$(extra_info["v_sum_domdeg_vars"])")
+    for (p, v) in extra_info["globals_pairs"]
+        print(",\n\t\"($(p[1]), $(p[2]))\":$(v)")
+    end
+    print("\n}")
     if training
         Helper.save_colors(colors_path, colors)
     end
