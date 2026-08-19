@@ -246,3 +246,7 @@ In addition to the WL color frequency dictionary, the output includes structural
 | `"(<source_type>, <target_type>)"` | Co-occurrence counts of variable/parameter types connected to specific cut/global constraint nodes (e.g., `("literal_node", "all_different_node")`) (only for `wl-nc` and `wl-nec` features). |
 
 Some of the features, specifically those starting with `d_`, `v_` and `o_`, have been ported from [fzn2feat](https://github.com/CP-Unibo/mzn2feat/tree/master/fzn2feat)
+
+### 3. Practical usage tips
+The feature extraction and graph generation process should work with any flatzinc model, however, it is highly reccomended to use it with gecode models. Each gecode constraint has a dedicated decomposition pipeline. Unknown constraints will be decomposed as global constraits with the name of the constraint being the name of the constraint node. 
+When used with different problems, the coloring refinement process may generate an high number of colors (up to several hundreds). It is highly reccomended to use some form of dimensionality reduction (like PCA) to improve the predictive performance of ML models.
