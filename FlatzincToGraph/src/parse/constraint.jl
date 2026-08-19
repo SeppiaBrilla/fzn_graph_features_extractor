@@ -43,10 +43,10 @@ end
 
 function decompose_parameters(components::AbstractString, vars::Dict{String,Variable}, parameters::Dict{String,Parameter}, graph::Graph, normalize::Bool)::Vector{Union{Vector{Node},Node}}
     constraint_parameters = Union{Vector{Node},Node}[]
-    
+
     len = lastindex(components)
     i = 1
-    
+
     @inline function skip_whitespace(idx)
         while idx <= len && (components[idx] == ' ' || components[idx] == '\t' || components[idx] == '\n' || components[idx] == '\r')
             idx = nextind(components, idx)
@@ -62,7 +62,7 @@ function decompose_parameters(components::AbstractString, vars::Dict{String,Vari
             if isnothing(close_idx)
                 break
             end
-            
+
             # Non-allocating parsing of array content
             arr_nodes = Node[]
             p = array_start
@@ -74,32 +74,32 @@ function decompose_parameters(components::AbstractString, vars::Dict{String,Vari
                 if p > p_end
                     break
                 end
-                
+
                 next_comma = findnext(',', components, p)
                 val_end = (isnothing(next_comma) || next_comma > p_end) ? p_end : next_comma - 1
-                
+
                 # strip trailing whitespace
                 v_end = val_end
                 while v_end >= p && (components[v_end] == ' ' || components[v_end] == '\t' || components[v_end] == '\n' || components[v_end] == '\r')
                     v_end = prevind(components, v_end)
                 end
-                
+
                 if p <= v_end
                     val_sub = SubString(components, p, v_end)
                     push!(arr_nodes, to_val(val_sub, vars, parameters, graph, false))
                 end
-                
+
                 p = isnothing(next_comma) ? p_end + 1 : next_comma + 1
             end
             push!(constraint_parameters, arr_nodes)
-            
+
             i = close_idx + 1
             i = skip_whitespace(i)
             if i <= len && components[i] == ','
                 i = nextind(components, i)
                 i = skip_whitespace(i)
             end
-            
+
         elseif components[i] == '{'
             close_idx = findnext('}', components, i + 1)
             if isnothing(close_idx)
@@ -107,18 +107,18 @@ function decompose_parameters(components::AbstractString, vars::Dict{String,Vari
             end
             set_sub = SubString(components, i, close_idx)
             push!(constraint_parameters, get_node_for_val(graph, String(set_sub), "set of int"))
-            
+
             i = close_idx + 1
             i = skip_whitespace(i)
             if i <= len && components[i] == ','
                 i = nextind(components, i)
                 i = skip_whitespace(i)
             end
-            
+
         else
             comma_idx = findnext(',', components, i)
             val_end = (isnothing(comma_idx) || comma_idx > len) ? len : comma_idx - 1
-            
+
             v_start = i
             while v_start <= val_end && (components[v_start] == ' ' || components[v_start] == '\t' || components[v_start] == '\n' || components[v_start] == '\r')
                 v_start = nextind(components, v_start)
@@ -127,21 +127,21 @@ function decompose_parameters(components::AbstractString, vars::Dict{String,Vari
             while v_end >= v_start && (components[v_end] == ' ' || components[v_end] == '\t' || components[v_end] == '\n' || components[v_end] == '\r')
                 v_end = prevind(components, v_end)
             end
-            
+
             if v_start <= v_end
                 val_sub = SubString(components, v_start, v_end)
                 push!(constraint_parameters, to_val(val_sub, vars, parameters, graph, normalize))
             end
-            
+
             i = isnothing(comma_idx) ? len + 1 : comma_idx + 1
             i = skip_whitespace(i)
         end
     end
-    
+
     return constraint_parameters
 end
 
-const CONSTRAINT_HANDLERS = Dict{String, Function}(
+const CONSTRAINT_HANDLERS = Dict{String,Function}(
     "int_lin_eq" => decompose_int_lin_eq,
     "int_lin_eq_reif" => decompose_int_lin_eq_reif,
     "int_lin_le" => decompose_int_lin_le,
@@ -253,7 +253,7 @@ function parse_constraint(line::String, parameters::Dict{String,Parameter}, vars
     if isnothing(open_idx)
         return graph
     end
-    
+
     id_start = 12
     id_end = open_idx - 1
     while id_start <= id_end && (line[id_start] == ' ' || line[id_start] == '\t')
@@ -266,7 +266,7 @@ function parse_constraint(line::String, parameters::Dict{String,Parameter}, vars
         return graph
     end
     identifier = String(SubString(line, id_start, id_end))
-    
+
     # Find matching closing parenthesis
     close_idx = -1
     nest_level = 0
@@ -282,20 +282,22 @@ function parse_constraint(line::String, parameters::Dict{String,Parameter}, vars
             end
         end
     end
-    
+
     if close_idx == -1
         return graph
     end
-    
-    components_str = SubString(line, open_idx+1, close_idx-1)
-    
+
+    components_str = SubString(line, open_idx + 1, close_idx - 1)
+
     normalize = !occursin("element", identifier)
     normalize = startswith(identifier, "gecode") ? true : normalize
     components = decompose_parameters(components_str, vars, parameters, graph, normalize)
-    
+
     handler = get(CONSTRAINT_HANDLERS, identifier, nothing)
     if !isnothing(handler)
         return handler(components, graph)
+    else
+        return decompose_unknown_global(components, graph, identifier)
     end
     return graph
 end
