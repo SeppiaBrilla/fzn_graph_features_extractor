@@ -102,20 +102,6 @@ function wl_node_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt6
     use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.maxthreadid() > 1
     colors_lock = ReentrantLock()
 
-    out_degrees = Dict{UInt64,Int}()
-    pairs = Dict{Tuple{Symbol,Symbol},Int}()
-
-    for (from_id, to_id, _) in g.edges
-        out_degrees[from_id] = get(out_degrees, from_id, 0) + 1
-
-        to_node = g.node_dict[to_id]
-        if is_cut_node(to_node.type)
-            from_node = g.node_dict[from_id]
-            pair = (typer(from_node.type), to_node.type)
-            pairs[pair] = get(pairs, pair, 0) + 1
-        end
-    end
-
     # 1. Parallel non-cut adjacency pre-filtering
     non_cut_in_adj = [Int[] for _ in 1:n_nodes]
     if use_parallel
@@ -131,22 +117,6 @@ function wl_node_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt6
     max_degree = maximum(length(adj_list) for adj_list in non_cut_in_adj; init=0)
     buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.maxthreadid()]
 
-    # 2. Statistics calculation
-    constraints_per_variable = 0
-    constraints_per_par = 0
-    n_var = 0
-    n_par = 0
-    for node in g.nodes
-        t = typer(node.type)
-        if node.type === :var_node
-            constraints_per_variable += get(out_degrees, node.id, 0)
-            n_var += 1
-        elseif t === :literal_node
-            constraints_per_par += get(out_degrees, node.id, 0)
-            n_par += 1
-        end
-    end
-
     globals_from_types = Dict{Symbol,Vector{Symbol}}()
     for (pair, _) in pairs
         g_type = pair[2]
@@ -155,7 +125,7 @@ function wl_node_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt6
         end
         push!(globals_from_types[g_type], pair[1])
     end
-    for (g_type, v) in globals_from_types
+    for (_, v) in globals_from_types
         sort!(v)
     end
 
