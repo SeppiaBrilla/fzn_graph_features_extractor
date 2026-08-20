@@ -121,8 +121,8 @@ end
         dict2_nc = Dict{UInt64,UInt64}()
         cnc_seq = wl_node_cut_directed_last(g_ring, dict1_nc, 3, true, 1)
         cnc_par = wl_node_cut_directed_last(g_ring, dict2_nc, 3, true, 4)
-        info_seq = extract_extra_info(g_ring)
-        info_par = extract_extra_info(g_ring)
+        info_seq = extract_extra_info(g_ring, 1)
+        info_par = extract_extra_info(g_ring, Threads.nthreads())
         @test cnc_seq == cnc_par
         @test info_seq["n_nodes"] == info_par["n_nodes"]
 
@@ -131,8 +131,8 @@ end
         dict2_nec = Dict{UInt64,UInt64}()
         cnec_seq = wl_node_edge_cut_directed_last(g_ring, dict1_nec, 3, true, 1)
         cnec_par = wl_node_edge_cut_directed_last(g_ring, dict2_nec, 3, true, 4)
-        info_seq2 = extract_extra_info(g_ring)
-        info_par2 = extract_extra_info(g_ring)
+        info_seq2 = extract_extra_info(g_ring, 1)
+        info_par2 = extract_extra_info(g_ring, Threads.nthreads())
         @test cnec_seq == cnec_par
         @test info_seq2["n_nodes"] == info_par2["n_nodes"]
     end

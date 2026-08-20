@@ -57,10 +57,10 @@ function variable_or_literal(el::String, vars::Dict{String,Variable}, type::Symb
     val = get(vars, el, nothing)
     if !isnothing(val)
         id = hash(val.name)
-        return Node(val.name, Symbol(val.type), "$id: $(val.name) -- var_node -- $(val.type) -- $(val.domain_size)", id)
+        return Node(val.name, :var_node, id, Symbol(val.type), val.domain_size)
     end
     id = hash(el)
-    return Node(el, type, "$id: $el -- literal_node -- $type -- $el", id)
+    return Node(el, :literal_node, id, type, 0)
 end
 variable_or_literal(el::String, vars::Dict{String,Variable}, type::String) = variable_or_literal(el, vars, Symbol(type))
 
@@ -70,10 +70,10 @@ function parameter_or_literal(el::String, parameters::Dict{String,Parameter}, ty
     if !isnothing(val)
         id = hash(val.name)
         value = val.type.is_array ? "array of $(val.type.type.type)" : val.value
-        return Node(val.name, Symbol(val.type.type.type), "$id: $(val.name) -- parameter_node -- $(val.type.type.type) -- $(value)", id)
+        return Node(val.name, :parameter_node, id, Symbol(val.type.type.type), 0)
     end
     id = hash(el)
-    return Node(el, type, "$id: $el -- literal_node -- $type -- $el", id)
+    return Node(el, :literal_node, id, type, 0)
 end
 parameter_or_literal(el::String, parameters::Dict{String,Parameter}, type::String) = parameter_or_literal(el, parameters, Symbol(type))
 
@@ -101,7 +101,7 @@ function get_node_for_val(graph::Graph, val::Variable)::Node
     if !isnothing(node)
         return node
     end
-    node = Node(val.name, Symbol(val.type), "$id: $(val.name) -- var_node -- $(val.type) -- $(val.domain_size)", id)
+        return Node(val.name, :var_node, id, Symbol(val.type), val.domain_size)
     #add_node(graph, node)
     return node
 end
@@ -113,7 +113,7 @@ function get_node_for_val(graph::Graph, val::Parameter)::Node
         return node
     end
     value = val.type.is_array ? "array of $(val.type.type.type)" : val.value
-    node = Node(val.name, Symbol(val.type.type.type), "$id: $(val.name) -- parameter_node -- $(val.type.type.type) -- $(value)", id)
+    node = Node(val.name, :parameter_node, id, Symbol(val.type.type.type), 0)
     add_node(graph, node)
     return node
 end
@@ -137,7 +137,7 @@ function get_node_for_val(graph::Graph, el::String, type::Symbol=:int)::Node
     if !isnothing(node)
         return node
     end
-    node = Node(el, type, "$id: $el -- literal_node -- $type -- $el", id)
+    node = Node(el, :literal_node, id, type, 0)
     add_node(graph, node)
     return node
 end
