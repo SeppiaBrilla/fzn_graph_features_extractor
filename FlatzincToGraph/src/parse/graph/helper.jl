@@ -30,7 +30,7 @@ end
 
 function list_to_node(graph::Graph, components::Vector{Any}, type::Symbol=:int)::Node
     arr_label = "array_" * string(get_next_global_id())
-    arr_node = Node(arr_label, :array_node, arr_label, hash(arr_label))
+    arr_node = Node(arr_label, :array_node, hash(arr_label))
     add_node(graph, arr_node)
     for comp in components
         node = get_node_for_val(graph, comp, type)
@@ -60,7 +60,7 @@ function variable_or_literal(el::String, vars::Dict{String,Variable}, type::Symb
         return Node(val.name, :var_node, id, Symbol(val.type), val.domain_size)
     end
     id = hash(el)
-    return Node(el, :literal_node, id, type, 0)
+    return Node(el, type, id, type, 0)
 end
 variable_or_literal(el::String, vars::Dict{String,Variable}, type::String) = variable_or_literal(el, vars, Symbol(type))
 
@@ -73,7 +73,7 @@ function parameter_or_literal(el::String, parameters::Dict{String,Parameter}, ty
         return Node(val.name, :parameter_node, id, Symbol(val.type.type.type), 0)
     end
     id = hash(el)
-    return Node(el, :literal_node, id, type, 0)
+    return Node(el, type, id, type, 0)
 end
 parameter_or_literal(el::String, parameters::Dict{String,Parameter}, type::String) = parameter_or_literal(el, parameters, Symbol(type))
 
@@ -137,15 +137,12 @@ function get_node_for_val(graph::Graph, el::String, type::Symbol=:int)::Node
     if !isnothing(node)
         return node
     end
-    node = Node(el, :literal_node, id, type, 0)
+    node = Node(el, type, id, type, 0)
     add_node(graph, node)
     return node
 end
 get_node_for_val(graph::Graph, el::String, type::String)::Node = get_node_for_val(graph, el, Symbol(type))
 
-function build_generic_value(idx::UInt64, label::String, type::Union{Symbol,String})::String
-    return "$idx: $label -- $type"
-end
 
 function flatten(list::Vector{Union{Vector{T},T}})::Vector{T} where T
     new_list = T[]
@@ -159,6 +156,6 @@ function flatten(list::Vector{Union{Vector{T},T}})::Vector{T} where T
     return new_list
 end
 
-export variable_or_literal, parameter_or_literal, resolve_component, get_node_for_val, list_to_node, get_type, normalize_list, build_generic_value, flatten, reset_counter, get_next_global_id
+export variable_or_literal, parameter_or_literal, resolve_component, get_node_for_val, list_to_node, get_type, normalize_list, flatten, reset_counter, get_next_global_id
 
 end

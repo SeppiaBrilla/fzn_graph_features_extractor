@@ -9,7 +9,7 @@ using ...GraphHelper
 function decompose_generic_global(args::Vector{Union{Vector{Node},Node}}, graph::Graph, label_prefix::String, type::Symbol)::Graph
     global_label = label_prefix * string(GraphHelper.get_next_global_id())
     global_hash = hash(global_label)
-    global_node = Node(global_label, type, build_generic_value(global_hash, global_label, type), global_hash)
+    global_node = Node(global_label, type, global_hash)
     add_node(graph, global_node)
 
     edge_obj = Edge(EDGE_2)

@@ -138,12 +138,12 @@ function flatzinc_to_graph(file_name::String, num_cores::Int=1)::Graph
             if solve.type == "maximize"
                 label = "Maximise($(solve.objectiveVar.name))"
                 id = hash(label)
-                add_node(graph, Node(label, :maximise_node, "$id: $(label) -- maximise_node", id))
+                add_node(graph, Node(label, :maximise_node, id))
                 add_edge(graph, id, hash(solve.objectiveVar.name), Edge(EDGE_0))
             elseif solve.type == "minimize"
                 label = "Minimise($(solve.objectiveVar.name))"
                 id = hash(label)
-                add_node(graph, Node(label, :minimise_node, "$id: $(label) -- minimise_node", id))
+                add_node(graph, Node(label, :minimise_node, id))
                 add_edge(graph, id, hash(solve.objectiveVar.name), Edge(EDGE_0))
             end
         end
@@ -156,23 +156,18 @@ function write_graph(graph::Graph, filepath::AbstractString)
     open(filepath, "w") do file
         @assert iswritable(file) "file $filepath is not writable"
 
-        write(file, "nodes:\n")
+        write(file, "##$(length(graph.nodes)) - $(length(graph.edges))\n"); write(file, "nodes:\n")
 
         for node in graph.nodes
-            if isempty(node.value)
                 if node.type === :var_node
                     write(file, "$(node.id): $(node.label) -- var_node -- $(node.var_type) -- $(node.var_dom_size)\n")
                 elseif node.type === :parameter_node
                     write(file, "$(node.id): $(node.label) -- parameter_node -- $(node.var_type) -- $(node.var_dom_size)\n")
-                elseif node.type === :literal_node
+                elseif node.type in (:int, :float, :bool, Symbol("set of int"))
                     write(file, "$(node.id): $(node.label) -- literal_node -- $(node.var_type) -- $(node.label)\n")
                 else
                     write(file, "$(node.id): $(node.label) -- $(node.type)\n")
                 end
-            else
-                write(file, node.value)
-                write(file, '\n')
-            end
         end
 
         write(file, "edges:\n")

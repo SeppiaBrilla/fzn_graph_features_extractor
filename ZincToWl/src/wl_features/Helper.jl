@@ -24,8 +24,8 @@ const GLOBAL_NODES = Set{Symbol}([
 ])
 
 const CUT_NODES = union(GLOBAL_NODES, Set{Symbol}([
-    :multi_and_node, :multi_or_node, :multi_xor_node,
-    :maximise_node, :minimise_node, :satisfy_node
+    :multi_and_node, :multi_or_node, :multi_xor_node
+    
 ]))
 
 @inline function is_global(node_type::Symbol)::Bool

@@ -57,6 +57,43 @@ function wl_edge_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, 
     return curr_colors
 end
 
-export wl_edge_directed_last
+function wl_edge_directed_all_levels(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool, num_cores::Int=1)::Vector{UInt64}
+    n_nodes = length(g.nodes)
+    if n_nodes == 0
+        return UInt64[]
+    end
+
+    in_adj = g.in_adj
+    curr_colors = zeros(UInt64, n_nodes)
+    next_colors = Vector{UInt64}(undef, n_nodes)
+    all_colors = Vector{UInt64}(undef, iterations * n_nodes)
+    colors_lock = ReentrantLock()
+
+    use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.maxthreadid() > 1
+
+    max_degree = maximum(length(adj_list) for adj_list in in_adj; init=0)
+    buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.maxthreadid()]
+
+    for it in 1:iterations
+        if use_parallel
+            Threads.@threads :static for i in 1:n_nodes
+                process_node!(i, in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[Threads.threadid()])
+            end
+        else
+            for i in 1:n_nodes
+                process_node!(i, in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[1])
+            end
+        end
+        curr_colors, next_colors = next_colors, curr_colors
+        base = n_nodes * (it - 1)
+        for i in 1:n_nodes
+            all_colors[base+i] = curr_colors[i]
+        end
+    end
+
+    return all_colors
+end
+
+export wl_edge_directed_last, wl_edge_directed_all_levels
 
 end

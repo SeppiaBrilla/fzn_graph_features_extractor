@@ -7,13 +7,12 @@ end
 struct Node
     label::String
     type::Symbol
-    value::String
     id::UInt64
     var_type::Symbol
     var_dom_size::Int32
 end
 @inline function Node(label::Any, type::Any, id::UInt64, var_type::Any=:None, var_dom_size::Any=0)::Node
-    return Node(String(label), Symbol(type), "", id, Symbol(var_type), Int32(var_dom_size))
+    return Node(String(label), Symbol(type), id, Symbol(var_type), Int32(var_dom_size))
 end
 
 const EDGE_0 = Symbol(0)

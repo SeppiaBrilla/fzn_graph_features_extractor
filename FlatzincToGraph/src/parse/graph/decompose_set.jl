@@ -14,12 +14,12 @@ function decompose_array_set_element(args::Vector{Union{Vector{Node},Node}}, gra
 
     index_label = "$(_as.label)[$(b.label)]"
     index_hash = hash(index_label)
-    index_node = Node(index_label, :index_node, build_generic_value(index_hash, index_label, "index_node"), index_hash)
+    index_node = Node(index_label, :index_node, index_hash)
     add_node(graph, index_node)
 
     eq_label = "$(index_node.label) = $(c.label)"
     eq_hash = hash(eq_label)
-    equality_node = Node(eq_label, :equality_node, build_generic_value(eq_hash, eq_label, "equality_node"), eq_hash)
+    equality_node = Node(eq_label, :equality_node, eq_hash)
     add_node(graph, equality_node)
 
     add_edge(graph, _as.id, index_node.id, Edge(EDGE_0))
@@ -41,12 +41,12 @@ function decompose_set_card(args::Vector{Union{Vector{Node},Node}}, graph::Graph
 
     card_label = "|$(s.label)|"
     card_hash = hash(card_label)
-    card_node = Node(card_label, :card_node, build_generic_value(card_hash, card_label, "card_node"), card_hash)
+    card_node = Node(card_label, :card_node, card_hash)
     add_node(graph, card_node)
 
     eq_label = "$(x.label) = $(card_node.label)"
     eq_hash = hash(eq_label)
-    equality_node = Node(eq_label, :equality_node, build_generic_value(eq_hash, eq_label, "equality_node"), eq_hash)
+    equality_node = Node(eq_label, :equality_node, eq_hash)
     add_node(graph, equality_node)
 
     add_edge(graph, s.id, card_node.id, Edge(EDGE_0))
@@ -63,12 +63,12 @@ function decompose_set_diff(args::Vector{Union{Vector{Node},Node}}, graph::Graph
 
     diff_label = "$(x.label) \\ $(y.label)"
     diff_hash = hash(diff_label)
-    diff_node = Node(diff_label, :diff_node, build_generic_value(diff_hash, diff_label, "diff_node"), diff_hash)
+    diff_node = Node(diff_label, :diff_node, diff_hash)
     add_node(graph, diff_node)
 
     eq_label = "$(r.label) = $(diff_label)"
     eq_hash = hash(eq_label)
-    equality_node = Node(eq_label, :equality_node, build_generic_value(eq_hash, eq_label, "equality_node"), eq_hash)
+    equality_node = Node(eq_label, :equality_node, eq_hash)
     add_node(graph, equality_node)
 
     add_edge(graph, x.id, diff_node.id, Edge(EDGE_0))
@@ -85,7 +85,7 @@ function decompose_set_eq(args::Vector{Union{Vector{Node},Node}}, graph::Graph):
 
     eq_label = "$(x.label) = $(y.label)"
     eq_hash = hash(eq_label)
-    equality_node = Node(eq_label, :equality_node, build_generic_value(eq_hash, eq_label, "equality_node"), eq_hash)
+    equality_node = Node(eq_label, :equality_node, eq_hash)
     add_node(graph, equality_node)
 
     add_edge(graph, x.id, equality_node.id, Edge(EDGE_0))
@@ -101,12 +101,12 @@ function decompose_set_eq_reif(args::Vector{Union{Vector{Node},Node}}, graph::Gr
 
     eq_label = "$(x.label) = $(y.label)"
     eq_hash = hash(eq_label)
-    equality_node = Node(eq_label, :equality_node, build_generic_value(eq_hash, eq_label, "equality_node"), eq_hash)
+    equality_node = Node(eq_label, :equality_node, eq_hash)
     add_node(graph, equality_node)
 
     iff_label = "$(r.label) <-> ($(eq_label))"
     iff_hash = hash(iff_label)
-    iff_node = Node(iff_label, :iff_node, build_generic_value(iff_hash, iff_label, "iff_node"), iff_hash)
+    iff_node = Node(iff_label, :iff_node, iff_hash)
     add_node(graph, iff_node)
 
     add_edge(graph, x.id, equality_node.id, Edge(EDGE_0))
@@ -124,12 +124,12 @@ function decompose_set_in_reif(args::Vector{Union{Vector{Node},Node}}, graph::Gr
 
     in_label = "$(x.label) in $(s.label)"
     in_hash = hash(in_label)
-    in_node = Node(in_label, :in_node, build_generic_value(in_hash, in_label, "in_node"), in_hash)
+    in_node = Node(in_label, :in_node, in_hash)
     add_node(graph, in_node)
 
     iff_label = "$(r.label) <-> ($(in_label))"
     iff_hash = hash(iff_label)
-    iff_node = Node(iff_label, :iff_node, build_generic_value(iff_hash, iff_label, "iff_node"), iff_hash)
+    iff_node = Node(iff_label, :iff_node, iff_hash)
     add_node(graph, iff_node)
 
     add_edge(graph, x.id, in_node.id, Edge(EDGE_0))
@@ -147,12 +147,12 @@ function decompose_set_intersect(args::Vector{Union{Vector{Node},Node}}, graph::
 
     intersect_label = "$(x.label) /\\ $(y.label)"
     intersect_hash = hash(intersect_label)
-    intersect_node = Node(intersect_label, :intersect_node, build_generic_value(intersect_hash, intersect_label, "intersect_node"), intersect_hash)
+    intersect_node = Node(intersect_label, :intersect_node, intersect_hash)
     add_node(graph, intersect_node)
 
     eq_label = "$(r.label) = $(intersect_label)"
     eq_hash = hash(eq_label)
-    equality_node = Node(eq_label, :equality_node, build_generic_value(eq_hash, eq_label, "equality_node"), eq_hash)
+    equality_node = Node(eq_label, :equality_node, eq_hash)
     add_node(graph, equality_node)
 
     add_edge(graph, x.id, intersect_node.id, Edge(EDGE_0))
@@ -169,7 +169,7 @@ function decompose_set_le(args::Vector{Union{Vector{Node},Node}}, graph::Graph):
 
     leq_label = "$(x.label) <= $(y.label)"
     leq_hash = hash(leq_label)
-    leq_node = Node(leq_label, :leq_node, build_generic_value(leq_hash, leq_label, "leq_node"), leq_hash)
+    leq_node = Node(leq_label, :leq_node, leq_hash)
     add_node(graph, leq_node)
 
     add_edge(graph, x.id, leq_node.id, Edge(EDGE_0))
@@ -185,11 +185,11 @@ function decompose_set_le_reif(args::Vector{Union{Vector{Node},Node}}, graph::Gr
 
     leq_label = "$(x.label) <= $(y.label)"
     leq_hash = hash(leq_label)
-    leq_node = Node(leq_label, :leq_node, build_generic_value(leq_hash, leq_label, "leq_node"), leq_hash)
+    leq_node = Node(leq_label, :leq_node, leq_hash)
     add_node(graph, leq_node)
 
     iff_label = "$(r.label) <-> ($(leq_label))"
-    iff_node = Node(iff_label, :iff_node, build_generic_value(hash(iff_label), iff_label, "iff_node"), hash(iff_label))
+    iff_node = Node(iff_label, :iff_node, hash(iff_label))
     add_node(graph, iff_node)
 
     add_edge(graph, x.id, leq_node.id, Edge(EDGE_0))
@@ -206,7 +206,7 @@ function decompose_set_lt(args::Vector{Union{Vector{Node},Node}}, graph::Graph):
 
     le_label = "$(x.label) < $(y.label)"
     le_hash = hash(le_label)
-    le_node = Node(le_label, :le_node, build_generic_value(le_hash, le_label, "le_node"), le_hash)
+    le_node = Node(le_label, :le_node, le_hash)
     add_node(graph, le_node)
 
     add_edge(graph, x.id, le_node.id, Edge(EDGE_0))
@@ -221,11 +221,11 @@ function decompose_set_lt_reif(args::Vector{Union{Vector{Node},Node}}, graph::Gr
     r = args[3]
 
     leq_label = "$(x.label) <= $(y.label)"
-    leq_node = Node(leq_label, :le_node, build_generic_value(hash(leq_label), leq_label, "le_node"), hash(leq_label))
+    leq_node = Node(leq_label, :le_node, hash(leq_label))
     add_node(graph, leq_node)
 
     iff_label = "$(r.label) <-> ($(leq_label))"
-    iff_node = Node(iff_label, :iff_node, build_generic_value(hash(iff_label), iff_label, "iff_node"), hash(iff_label))
+    iff_node = Node(iff_label, :iff_node, hash(iff_label))
     add_node(graph, iff_node)
 
     add_edge(graph, x.id, leq_node.id, Edge(EDGE_0))
@@ -241,7 +241,7 @@ function decompose_set_ne(args::Vector{Union{Vector{Node},Node}}, graph::Graph):
     y = args[2]
 
     ineq_label = "$(x.label) != $(y.label)"
-    inequality_node = Node(ineq_label, :inequality_node, build_generic_value(hash(ineq_label), ineq_label, "inequality_node"), hash(ineq_label))
+    inequality_node = Node(ineq_label, :inequality_node, hash(ineq_label))
     add_node(graph, inequality_node)
 
     add_edge(graph, x.id, inequality_node.id, Edge(EDGE_0))
@@ -257,7 +257,7 @@ function decompose_set_ne_reif(args::Vector{Union{Vector{Node},Node}}, graph::Gr
 
 
     ineq_label = "$(x.label) != $(y.label)"
-    inequality_node = Node(ineq_label, :inequality_node, build_generic_value(hash(ineq_label), ineq_label, "inequality_node"), hash(ineq_label))
+    inequality_node = Node(ineq_label, :inequality_node, hash(ineq_label))
     add_node(graph, inequality_node)
 
     iff_label = "$(r.label) <-> ($(ineq_label))"
@@ -348,11 +348,11 @@ function decompose_set_symdiff(args::Vector{Union{Vector{Node},Node}}, graph::Gr
     r = args[3]
 
     symdiff_label = "$(x.label) symdiff $(y.label)"
-    symdiff_node = Node(symdiff_label, :symdiff_node, build_generic_value(hash(symdiff_label), symdiff_label, "symdiff_node"), hash(symdiff_label))
+    symdiff_node = Node(symdiff_label, :symdiff_node, hash(symdiff_label))
     add_node(graph, symdiff_node)
 
     eq_label = "$(r.label) = $(symdiff_label)"
-    equality_node = Node(eq_label, :equality_node, build_generic_value(hash(eq_label), eq_label, "equality_node"), hash(eq_label))
+    equality_node = Node(eq_label, :equality_node, hash(eq_label))
     add_node(graph, equality_node)
 
     add_edge(graph, x.id, symdiff_node.id, Edge(EDGE_0))
@@ -369,11 +369,11 @@ function decompose_set_union(args::Vector{Union{Vector{Node},Node}}, graph::Grap
     r = args[3]
 
     union_label = "$(x.label) union $(y.label)"
-    union_node = Node(union_label, :union_node, build_generic_value(hash(union_label), union_label, "union_node"), hash(union_label))
+    union_node = Node(union_label, :union_node, hash(union_label))
     add_node(graph, union_node)
 
     eq_label = "$(r.label) = $(union_label)"
-    equality_node = Node(eq_label, :equality_node, build_generic_value(hash(eq_label), eq_label, "equality_node"), hash(eq_label))
+    equality_node = Node(eq_label, :equality_node, hash(eq_label))
     add_node(graph, equality_node)
 
     add_edge(graph, x.id, union_node.id, Edge(EDGE_0))

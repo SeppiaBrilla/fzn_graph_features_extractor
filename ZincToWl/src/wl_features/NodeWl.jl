@@ -71,6 +71,59 @@ function wl_node_directed_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, 
     return curr_colors
 end
 
-export wl_node_directed_last
+function wl_node_directed_all_levels(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool, num_cores::Int=1)::Vector{UInt64}
+    n_nodes = length(g.nodes)
+    if n_nodes == 0
+        return UInt64[]
+    end
+
+    in_adj = g.in_adj
+
+    all_colors = Vector{UInt64}(undef, n_nodes * (iterations + 1))
+    curr_colors = Vector{UInt64}(undef, n_nodes)
+    for (i, node) in enumerate(g.nodes)
+        t_type = typer(node.type)
+        h_type = hash(t_type)
+        if training
+            if !haskey(colors, h_type)
+                colors[h_type] = h_type
+            end
+            curr_colors[i] = h_type
+        else
+            curr_colors[i] = get(colors, h_type, h_type)
+        end
+        all_colors[i] = curr_colors[i]
+    end
+
+    next_colors = Vector{UInt64}(undef, n_nodes)
+    colors_lock = ReentrantLock()
+
+    use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.maxthreadid() > 1
+
+    max_degree = maximum(length(adj_list) for adj_list in in_adj; init=0)
+    buffer = [Vector{UInt64}(undef, max_degree) for _ in 1:Threads.maxthreadid()]
+
+    for it in 1:iterations
+        if use_parallel
+            Threads.@threads :static for i in 1:n_nodes
+                process_node!(i, in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[Threads.threadid()])
+            end
+        else
+            for i in 1:n_nodes
+                process_node!(i, in_adj, curr_colors, next_colors, colors, colors_lock, training, buffer[1])
+            end
+        end
+        curr_colors, next_colors = next_colors, curr_colors
+        base = n_nodes * it
+        for i in 1:n_nodes
+            all_colors[i+base] = curr_colors[i]
+        end
+    end
+
+    return curr_colors
+end
+
+
+export wl_node_directed_last, wl_node_directed_all_levels
 
 end

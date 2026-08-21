@@ -74,16 +74,33 @@ function load_graph(filepath::String)::Graph
 
                 sym_node_type = Symbol(node_type)
 
+                var_type = :None
+                var_dom_size = Int32(0)
+                if !isnothing(pos)
+                    start_var_type = last(pos) + 1
+                    pos2 = findnext(" -- ", rest, start_var_type)
+                    if isnothing(pos2)
+                        var_type = Symbol(SubString(rest, start_var_type))
+                    else
+                        var_type = Symbol(SubString(rest, start_var_type, first(pos2) - 1))
+                        dom_str = SubString(rest, last(pos2) + 1)
+                        dom_parsed = tryparse(Int32, String(dom_str))
+                        if !isnothing(dom_parsed)
+                            var_dom_size = dom_parsed
+                        end
+                    end
+                end
+
                 if sym_node_type === :literal_node || sym_node_type === :var_node
-                    node = Node(label, sym_node_type, line, idx)
+                    node = Node(label, sym_node_type, idx, var_type, var_dom_size)
                 elseif sym_node_type === :parameter_node || sym_node_type === :par_node
-                    node = Node(label, :par_node, line, idx)
+                    node = Node(label, :par_node, idx, var_type, var_dom_size)
                 elseif is_global(sym_node_type)
                     global_name = replace(node_type, "_node" => "")
-                    node = Node(global_name * string(globals_count), sym_node_type, line, idx)
+                    node = Node(global_name * string(globals_count), sym_node_type, idx, var_type, var_dom_size)
                     globals_count += 1
                 else
-                    node = Node(label, sym_node_type, line, idx)
+                    node = Node(label, sym_node_type, idx, var_type, var_dom_size)
                 end
 
                 add_node(graph, node)
