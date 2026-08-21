@@ -3,7 +3,7 @@ module Helper
 using Serialization
 
 function typer(t::Symbol)::Symbol
-    if t in (:int, :float, :bool, :par_node, :parameter_node)
+    if t in (:int, :float, :bool, :par_node, :parameter_node, :SetOfInt)
         return :literal_node
     end
     return t

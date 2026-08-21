@@ -48,7 +48,7 @@ function is_set(value::AbstractString)::Bool
     dot_idx = findfirst("..", value)
     if !isnothing(dot_idx)
         idx = first(dot_idx)
-        return !isnothing(tryparse(Int32, SubString(value, 1, idx-1))) && !isnothing(tryparse(Int32, SubString(value, idx+2, len)))
+        return !isnothing(tryparse(Int64, SubString(value, 1, idx-1))) && !isnothing(tryparse(Int64, SubString(value, idx+2, len)))
     end
     return false
 end

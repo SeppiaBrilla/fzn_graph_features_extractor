@@ -75,7 +75,7 @@ function load_graph(filepath::String)::Graph
                 sym_node_type = Symbol(node_type)
 
                 var_type = :None
-                var_dom_size = Int32(0)
+                var_dom_size = Int64(0)
                 if !isnothing(pos)
                     start_var_type = last(pos) + 1
                     pos2 = findnext(" -- ", rest, start_var_type)
@@ -84,7 +84,7 @@ function load_graph(filepath::String)::Graph
                     else
                         var_type = Symbol(SubString(rest, start_var_type, first(pos2) - 1))
                         dom_str = SubString(rest, last(pos2) + 1)
-                        dom_parsed = tryparse(Int32, String(dom_str))
+                        dom_parsed = tryparse(Int64, String(dom_str))
                         if !isnothing(dom_parsed)
                             var_dom_size = dom_parsed
                         end

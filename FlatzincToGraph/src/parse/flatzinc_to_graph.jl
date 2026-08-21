@@ -156,18 +156,19 @@ function write_graph(graph::Graph, filepath::AbstractString)
     open(filepath, "w") do file
         @assert iswritable(file) "file $filepath is not writable"
 
-        write(file, "##$(length(graph.nodes)) - $(length(graph.edges))\n"); write(file, "nodes:\n")
+        write(file, "##$(length(graph.nodes)) - $(length(graph.edges))\n")
+        write(file, "nodes:\n")
 
         for node in graph.nodes
-                if node.type === :var_node
-                    write(file, "$(node.id): $(node.label) -- var_node -- $(node.var_type) -- $(node.var_dom_size)\n")
-                elseif node.type === :parameter_node
-                    write(file, "$(node.id): $(node.label) -- parameter_node -- $(node.var_type) -- $(node.var_dom_size)\n")
-                elseif node.type in (:int, :float, :bool, Symbol("set of int"))
-                    write(file, "$(node.id): $(node.label) -- literal_node -- $(node.var_type) -- $(node.label)\n")
-                else
-                    write(file, "$(node.id): $(node.label) -- $(node.type)\n")
-                end
+            if node.type === :var_node
+                write(file, "$(node.id): $(node.label) -- var_node -- $(node.var_type) -- $(node.var_dom_size)\n")
+            elseif node.type === :parameter_node
+                write(file, "$(node.id): $(node.label) -- parameter_node -- $(node.var_type) -- $(node.var_dom_size)\n")
+            elseif node.type in (:int, :float, :bool, :SetOfInt)
+                write(file, "$(node.id): $(node.label) -- literal_node -- $(node.var_type) -- $(node.label)\n")
+            else
+                write(file, "$(node.id): $(node.label) -- $(node.type)\n")
+            end
         end
 
         write(file, "edges:\n")
