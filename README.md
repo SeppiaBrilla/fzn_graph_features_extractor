@@ -262,3 +262,5 @@ Compared to [fzn2feat](https://github.com/CP-Unibo/mzn2feat/tree/master/fzn2feat
 | total time (s) | 441.451    | **332.985**       | 338.215           |
 
 ![Extraction time statistics](./extraction_time/feature_extraction.png)
+
+All features have been extracted using a Intel Core Ultra 7 155U with 32GB or RAM.
