@@ -118,15 +118,15 @@ ZincToWl can process input files in standalone CLI mode or in persistent UNIX do
 
 #### Command-Line Arguments
 
-| Argument | Short | Type | Default | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `input_file` | | `String` | *(Required)* | Path to `.fzn` or `.graph` file (not required in server mode) |
-| `--method` | `-m` | `String` | `wl-nc` | Weisfeiler-Lehman method (`wl`, `wl-n`, `wl-e`, `wl-ne`, `wl-nc`, `wl-nec`) |
-| `--wl-iterations` | `-k` | `Int` | `1` | Number of Weisfeiler-Lehman iterations |
-| `--num-cores` | `-c` | `Int` | `1` | Number of worker threads for parallel iteration |
-| `--colors` | | `String` | `colors.bin` | Path to persistent serialized color dictionary |
-| `--training` | `-t` | `Bool` | `false` | When true, registers newly discovered colors into `--colors` |
-| `--server` | | `String` | | Starts ZincToWl as a persistent server on the specified UNIX domain socket |
+| Argument          | Short | Type     | Default      | Description                                                                 |
+| :---------------- | :---- | :------- | :----------- | :-------------------------------------------------------------------------- |
+| `input_file`      |       | `String` | *(Required)* | Path to `.fzn` or `.graph` file (not required in server mode)               |
+| `--method`        | `-m`  | `String` | `wl-nc`      | Weisfeiler-Lehman method (`wl`, `wl-n`, `wl-e`, `wl-ne`, `wl-nc`, `wl-nec`) |
+| `--wl-iterations` | `-k`  | `Int`    | `1`          | Number of Weisfeiler-Lehman iterations                                      |
+| `--num-cores`     | `-c`  | `Int`    | `1`          | Number of worker threads for parallel iteration                             |
+| `--colors`        |       | `String` | `colors.bin` | Path to persistent serialized color dictionary                              |
+| `--training`      | `-t`  | `Bool`   | `false`      | When true, registers newly discovered colors into `--colors`                |
+| `--server`        |       | `String` |              | Starts ZincToWl as a persistent server on the specified UNIX domain socket  |
 
 #### Recommended Default Configuration
 
@@ -231,18 +231,18 @@ The choice of `--method` determines how graph nodes and edges are initialized an
 
 In addition to the WL color frequency dictionary, the output includes structural metrics extracted from the constraint graph:
 
-| Feature Key | Description |
-| :--- | :--- |
-| `n_nodes` | Total number of nodes in the graph representation. |
-| `cpv` | Constraints per variable (average out-degree of variable nodes). |
-| `cpp` | Constraints per parameter (average out-degree of parameter/literal nodes). |
-| `d_ratio_int_vars` | Ratio of integer decision variables to total variables. |
-| `d_ratio_bool_vars` | Ratio of Boolean decision variables to total variables. |
-| `v_ent_deg_vars` | Entropy of the variable degree distribution ($-\sum p \log_2 p$). |
-| `v_sum_domdeg_vars` | Sum of domain-size-to-degree ratios across connected decision variables ($\sum_{v, \text{deg}(v) > 0} \frac{|\text{dom}(v)|}{\text{deg}(v)}$). |
-| `o_deg_cons` | Objective variable degree normalized by total number of constraints. |
-| `o_deg_std` | Standardized objective variable degree relative to mean variable degree. |
-| `o_dom_deg` | Ratio of objective variable domain size to its degree. |
+| Feature Key                        | Description                                                                                                                                                                                   |
+| :--------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `n_nodes`                          | Total number of nodes in the graph representation.                                                                                                                                            |
+| `cpv`                              | Constraints per variable (average out-degree of variable nodes).                                                                                                                              |
+| `cpp`                              | Constraints per parameter (average out-degree of parameter/literal nodes).                                                                                                                    |
+| `d_ratio_int_vars`                 | Ratio of integer decision variables to total variables.                                                                                                                                       |
+| `d_ratio_bool_vars`                | Ratio of Boolean decision variables to total variables.                                                                                                                                       |
+| `v_ent_deg_vars`                   | Entropy of the variable degree distribution ($-\sum p \log_2 p$).                                                                                                                             |
+| `v_sum_domdeg_vars`                | Sum of domain-size-to-degree ratios across connected decision variables ($\sum_{v, \text{deg}(v) > 0} \frac{                                                                                  | \text{dom}(v) | }{\text{deg}(v)}$). |
+| `o_deg_cons`                       | Objective variable degree normalized by total number of constraints.                                                                                                                          |
+| `o_deg_std`                        | Standardized objective variable degree relative to mean variable degree.                                                                                                                      |
+| `o_dom_deg`                        | Ratio of objective variable domain size to its degree.                                                                                                                                        |
 | `"(<source_type>, <target_type>)"` | Co-occurrence counts of variable/parameter types connected to specific cut/global constraint nodes (e.g., `("literal_node", "all_different_node")`) (only for `wl-nc` and `wl-nec` features). |
 
 Some of the features, specifically those starting with `d_`, `v_` and `o_`, have been ported from [fzn2feat](https://github.com/CP-Unibo/mzn2feat/tree/master/fzn2feat)
@@ -250,3 +250,15 @@ Some of the features, specifically those starting with `d_`, `v_` and `o_`, have
 ### 3. Practical usage tips
 The feature extraction and graph generation process should work with any flatzinc model, however, it is highly reccomended to use it with gecode models. Each gecode constraint has a dedicated decomposition pipeline. Unknown constraints will be decomposed as global constraits with the name of the constraint being the name of the constraint node. 
 When used with different problems, the coloring refinement process may generate an high number of colors (up to several hundreds). It is highly reccomended to use some form of dimensionality reduction (like PCA) to improve the predictive performance of ML models.
+
+## Feature Extraction Cost
+Compared to [fzn2feat](https://github.com/CP-Unibo/mzn2feat/tree/master/fzn2feat), the extraction cost on a flatzinc file is lower. On all the instances from the minizinc challenge, from 2012 to 2026, the extraction time statistics (excluding flatzinc compilation time) are the following (lower is better):
+| Metric         | fzn2feat   | wl-nc k=1 cores=8 | wl-nc k=1 cores=1 |
+| -------------- | ---------- | ----------------- | ----------------- |
+| median (s)     | 0.018      | 0.017             | **0.013**         |
+| mean (s)       | 0.294      | **0.221**         | 0.225             |
+| max (s)        | **21.999** | 27.924            | 27.507            |
+| min (s)        | 0.0021     | 0.0014            | **0.0008**        |
+| total time (s) | 441.451    | **332.985**       | 338.215           |
+
+![Extraction time statistics](./extraction_time/feature_extraction.png)
