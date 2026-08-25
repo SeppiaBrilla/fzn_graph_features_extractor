@@ -99,7 +99,6 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
     use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.maxthreadid() > 1
     colors_lock = ReentrantLock()
 
-    # 1. Parallel non-cut adjacency pre-filtering
     non_cut_in_adj = [Tuple{Int,UInt64}[] for _ in 1:n_nodes]
 
     if use_parallel
@@ -137,7 +136,6 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
         sort!(v)
     end
 
-    # 3. Parallel initial color assignment
     curr_colors = Vector{UInt64}(undef, n_nodes)
     if use_parallel
         Threads.@threads :static for i in 1:n_nodes
@@ -149,7 +147,6 @@ function wl_node_edge_cut_directed_last(g::GraphType.Graph, colors::Dict{UInt64,
         end
     end
 
-    # 4. Main WL iterations loop
     next_colors = Vector{UInt64}(undef, n_nodes)
 
     for _ in 1:iterations
@@ -177,7 +174,6 @@ function wl_node_edge_cut_directed_all_levels(g::GraphType.Graph, colors::Dict{U
     use_parallel = n_nodes >= 1000 && num_cores > 1 && Threads.maxthreadid() > 1
     colors_lock = ReentrantLock()
 
-    # 1. Parallel non-cut adjacency pre-filtering
     non_cut_in_adj = [Tuple{Int,UInt64}[] for _ in 1:n_nodes]
 
     if use_parallel
@@ -216,7 +212,6 @@ function wl_node_edge_cut_directed_all_levels(g::GraphType.Graph, colors::Dict{U
         sort!(v)
     end
 
-    # 3. Parallel initial color assignment
     curr_colors = Vector{UInt64}(undef, n_nodes)
     all_colors = Vector{UInt64}(undef, (iterations + 1) * n_nodes)
     if use_parallel
@@ -233,7 +228,6 @@ function wl_node_edge_cut_directed_all_levels(g::GraphType.Graph, colors::Dict{U
         all_colors[i] = curr_colors[i]
     end
 
-    # 4. Main WL iterations loop
     next_colors = Vector{UInt64}(undef, n_nodes)
 
     for it in 1:iterations
@@ -257,6 +251,68 @@ function wl_node_edge_cut_directed_all_levels(g::GraphType.Graph, colors::Dict{U
     return curr_colors
 end
 
-export wl_node_edge_cut_directed_last, wl_node_edge_cut_directed_all_levels
+function wl_node_edge_cut_undirected_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool)::Vector{UInt64}
+    n_nodes = length(g.nodes)
+    if n_nodes == 0
+        return UInt64[]
+    end
+
+    colors_lock = ReentrantLock()
+
+    non_cut_adj = [Tuple{Int,UInt64}[] for _ in 1:n_nodes]
+    for to_i in 1:n_nodes
+        for (from_i, h_edge) in g.in_adj[to_i]
+            if !is_cut_node(g.nodes[to_i].type)
+                push!(non_cut_adj[to_i], (from_i, h_edge))
+            end
+            if !is_cut_node(g.nodes[from_i].type)
+                push!(non_cut_adj[from_i], (to_i, h_edge))
+            end
+        end
+    end
+
+    max_degree = maximum(length(adj_list) for adj_list in non_cut_adj; init=0)
+    buffer = Vector{UInt64}(undef, max_degree)
+
+    pairs = Dict{Tuple{Symbol,Symbol},Int}()
+    for (from_id, to_id, _) in g.edges
+        to_node = g.node_dict[to_id]
+        if is_cut_node(to_node.type)
+            from_node = g.node_dict[from_id]
+            pair = (typer(from_node.type), to_node.type)
+            pairs[pair] = get(pairs, pair, 0) + 1
+        end
+    end
+
+    globals_from_types = Dict{Symbol,Vector{Symbol}}()
+    for (pair, _) in pairs
+        g_type = pair[2]
+        if !haskey(globals_from_types, g_type)
+            globals_from_types[g_type] = Symbol[]
+        end
+        push!(globals_from_types[g_type], pair[1])
+    end
+    for (_, v) in globals_from_types
+        sort!(v)
+    end
+
+    curr_colors = Vector{UInt64}(undef, n_nodes)
+    for i in 1:n_nodes
+        init_node_color!(i, g.nodes, globals_from_types, curr_colors, colors, colors_lock, training)
+    end
+
+    next_colors = Vector{UInt64}(undef, n_nodes)
+
+    for _ in 1:iterations
+        for i in 1:n_nodes
+            process_node!(i, g.nodes, non_cut_adj, curr_colors, next_colors, colors, colors_lock, training, buffer)
+        end
+        curr_colors, next_colors = next_colors, curr_colors
+    end
+
+    return curr_colors
+end
+
+export wl_node_edge_cut_directed_last, wl_node_edge_cut_directed_all_levels, wl_node_edge_cut_undirected_last
 
 end

@@ -124,6 +124,50 @@ function wl_node_directed_all_levels(g::GraphType.Graph, colors::Dict{UInt64,UIn
 end
 
 
-export wl_node_directed_last, wl_node_directed_all_levels
+function wl_node_undirected_last(g::GraphType.Graph, colors::Dict{UInt64,UInt64}, iterations::Int, training::Bool)::Vector{UInt64}
+    n_nodes = length(g.nodes)
+    if n_nodes == 0
+        return UInt64[]
+    end
+
+    adj = [Tuple{Int,UInt64}[] for _ in 1:n_nodes]
+    for to_i in 1:n_nodes
+        for (from_i, edge_hash) in g.in_adj[to_i]
+            push!(adj[to_i], (from_i, edge_hash))
+            push!(adj[from_i], (to_i, edge_hash))
+        end
+    end
+
+    curr_colors = Vector{UInt64}(undef, n_nodes)
+    for (i, node) in enumerate(g.nodes)
+        t_type = typer(node.type)
+        h_type = hash(t_type)
+        if training
+            if !haskey(colors, h_type)
+                colors[h_type] = h_type
+            end
+            curr_colors[i] = h_type
+        else
+            curr_colors[i] = get(colors, h_type, h_type)
+        end
+    end
+
+    next_colors = Vector{UInt64}(undef, n_nodes)
+    colors_lock = ReentrantLock()
+
+    max_degree = maximum(length(adj_list) for adj_list in adj; init=0)
+    buffer = Vector{UInt64}(undef, max_degree)
+
+    for _ in 1:iterations
+        for i in 1:n_nodes
+            process_node!(i, adj, curr_colors, next_colors, colors, colors_lock, training, buffer)
+        end
+        curr_colors, next_colors = next_colors, curr_colors
+    end
+
+    return curr_colors
+end
+
+export wl_node_directed_last, wl_node_directed_all_levels, wl_node_undirected_last
 
 end

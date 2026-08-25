@@ -44,7 +44,7 @@ function parse_commandline(args::Vector{String})
         help = "Weisfeiler-Lehman method"
         arg_type = String
         default = "wl-nc"
-        range_tester = x -> x in ["wl", "wl-n", "wl-e", "wl-ne", "wl-nc", "wl-nec", "wl-a", "wl-an", "wl-ae", "wl-ane", "wl-anc", "wl-anec"]
+        range_tester = x -> x in ["wl", "wl-n", "wl-e", "wl-ne", "wl-nc", "wl-nec", "wl-u", "wl-un", "wl-ue", "wl-une", "wl-unc", "wl-unec", "wl-a", "wl-an", "wl-ae", "wl-ane", "wl-anc", "wl-anec"]
         "--colors"
         help = "Path to the colors dict. Creates the file if it doesn't exist."
         arg_type = String
@@ -111,25 +111,44 @@ function main(args::Vector{String}=copy(ARGS))
     elseif method == "wl-nec"
         node_colors = wl_node_edge_cut_directed_last(g, colors, wl_iterations, training, num_cores)
 
-
     elseif method == "wl-a"
-        println(stderr, "WARNING: all_levels graphs are not reccomended to use and are kept for testing purposes only")
+        println(stderr, "WARNING: all_levels graphs are not recommended to use and are kept for testing purposes only")
         node_colors = wl_directed_all_levels(g, colors, wl_iterations, training, num_cores)
     elseif method == "wl-an"
-        println(stderr, "WARNING: all_levels graphs are not reccomended to use and are kept for testing purposes only")
+        println(stderr, "WARNING: all_levels graphs are not recommended to use and are kept for testing purposes only")
         node_colors = wl_node_directed_all_levels(g, colors, wl_iterations, training, num_cores)
     elseif method == "wl-ae"
-        println(stderr, "WARNING: all_levels graphs are not reccomended to use and are kept for testing purposes only")
+        println(stderr, "WARNING: all_levels graphs are not recommended to use and are kept for testing purposes only")
         node_colors = wl_edge_directed_all_levels(g, colors, wl_iterations, training, num_cores)
     elseif method == "wl-ane"
-        println(stderr, "WARNING: all_levels graphs are not reccomended to use and are kept for testing purposes only")
+        println(stderr, "WARNING: all_levels graphs are not recommended to use and are kept for testing purposes only")
         node_colors = wl_node_edge_directed_all_levels(g, colors, wl_iterations, training, num_cores)
     elseif method == "wl-anc"
-        println(stderr, "WARNING: all_levels graphs are not reccomended to use and are kept for testing purposes only")
+        println(stderr, "WARNING: all_levels graphs are not recommended to use and are kept for testing purposes only")
         node_colors = wl_node_cut_directed_all_colors(g, colors, wl_iterations, training, num_cores)
     elseif method == "wl-anec"
-        println(stderr, "WARNING: all_levels graphs are not reccomended to use and are kept for testing purposes only")
+        println(stderr, "WARNING: all_levels graphs are not recommended to use and are kept for testing purposes only")
         node_colors = wl_node_edge_cut_directed_all_levels(g, colors, wl_iterations, training, num_cores)
+
+    elseif method == "wl-u"
+        println(stderr, "WARNING: undirected graphs are not recomended to use and are kept for testing purposes only")
+        node_colors = wl_undirected_last(g, colors, wl_iterations, training)
+    elseif method == "wl-un"
+        println(stderr, "WARNING: undirected graphs are not recommended to use and are kept for testing purposes only")
+        node_colors = wl_node_undirected_last(g, colors, wl_iterations, training)
+    elseif method == "wl-ue"
+        println(stderr, "WARNING: undirected graphs are not recommended to use and are kept for testing purposes only")
+        node_colors = wl_edge_undirected_last(g, colors, wl_iterations, training)
+    elseif method == "wl-une"
+        println(stderr, "WARNING: undirected graphs are not recommended to use and are kept for testing purposes only")
+        node_colors = wl_node_edge_undirected_last(g, colors, wl_iterations, training)
+    elseif method == "wl-unc"
+        println(stderr, "WARNING: undirected graphs are not recommended to use and are kept for testing purposes only")
+        node_colors = wl_node_cut_undirected_last(g, colors, wl_iterations, training)
+    elseif method == "wl-unec"
+        println(stderr, "WARNING: undirected graphs are not recommended to use and are kept for testing purposes only")
+        node_colors = wl_node_edge_cut_undirected_last(g, colors, wl_iterations, training)
+
     end
 
     print("\n$(format_colors(node_colors, false))")
