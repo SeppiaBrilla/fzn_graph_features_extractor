@@ -1,5 +1,6 @@
 module ZincToWl
 
+using ArgParse: check_type
 using FlatzincToGraph
 using ArgParse
 
@@ -53,6 +54,10 @@ function parse_commandline(args::Vector{String})
         help = "whether it is training or testing (training mode add unseen colors to the colors dict)"
         arg_type = Bool
         default = false
+        "--check-colors"
+        help = "Prints all the colors of a color file to stdout. It is ignored if a .fzn or .graph file is passed"
+        arg_type = String
+        required = false
     end
 
     return parse_args(args, s)
@@ -77,10 +82,24 @@ end
 
 function main(args::Vector{String}=copy(ARGS))
     parsed_args = parse_commandline(args)
-
+    check_colors = parsed_args["check-colors"]
     input_file = parsed_args["input_file"]
+    if !isnothing(check_colors) && (isnothing(input_file) || isempty(input_file))
+        colors = Helper.load_colors(check_colors)
+        is_first = true
+        for col in values(colors)
+            if is_first
+                print(col)
+                is_first = false
+            else
+                print(",$col")
+            end
+        end
+        return
+    end
+
     if isnothing(input_file) || isempty(input_file)
-        error("input_file is required unless starting a server")
+        error("input_file is required unless starting a server or checking colors with --check-colors")
     end
     num_cores = parsed_args["num-cores"]
     wl_iterations = parsed_args["wl-iterations"]
