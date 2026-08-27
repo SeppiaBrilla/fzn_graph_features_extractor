@@ -118,14 +118,15 @@ ZincToWl can process input files in standalone CLI mode or in persistent UNIX do
 
 #### Command-Line Arguments
 
-| Argument          | Short | Type     | Default      | Description                                                                 |
-| :---------------- | :---- | :------- | :----------- | :-------------------------------------------------------------------------- |
-| `input_file`      |       | `String` | *(Required)* | Path to `.fzn` or `.graph` file (not required in server mode)               |
-| `--method`        | `-m`  | `String` | `wl-nc`      | Weisfeiler-Lehman method (`wl`, `wl-n`, `wl-e`, `wl-ne`, `wl-nc`, `wl-nec`) |
-| `--wl-iterations` | `-k`  | `Int`    | `1`          | Number of Weisfeiler-Lehman iterations                                      |
-| `--num-cores`     | `-c`  | `Int`    | `1`          | Number of worker threads for parallel iteration                             |
-| `--colors`        |       | `String` | `colors.bin` | Path to persistent serialized color dictionary                              |
-| `--training`      | `-t`  | `Bool`   | `false`      | When true, registers newly discovered colors into `--colors`                |
+| Argument          | Short | Type     | Default      | Description                                                                                                                          |
+| :---------------- | :---- | :------- | :----------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+| `input_file`      |       | `String` | *(Required)* | Path to `.fzn` or `.graph` file (not required in server mode)                                                                        |
+| `--method`        | `-m`  | `String` | `wl-nc`      | Weisfeiler-Lehman method (`wl`, `wl-n`, `wl-e`, `wl-ne`, `wl-nc`, `wl-nec`)                                                          |
+| `--wl-iterations` | `-k`  | `Int`    | `1`          | Number of Weisfeiler-Lehman iterations                                                                                               |
+| `--num-cores`     | `-c`  | `Int`    | `1`          | Number of worker threads for parallel iteration                                                                                      |
+| `--colors`        |       | `String` | `colors.bin` | Path to persistent serialized color dictionary                                                                                       |
+| `--training`      | `-t`  | `Bool`   | `false`      | When true, registers newly discovered colors into `--colors`                                                                         |
+| `--check-colors`  |       | `String` |              | Given a color file, it prints all the colors to stdout separated by commas. This argument is ignored in case a input file is passed  |
 | `--server`        |       | `String` |              | Starts ZincToWl as a persistent server on the specified UNIX domain socket  |
 
 #### Recommended Default Configuration
@@ -249,6 +250,9 @@ Some of the features, specifically those starting with `d_`, `v_` and `o_`, have
 
 ### 3. Practical usage tips
 The feature extraction and graph generation process should work with any flatzinc model, however, it is highly reccomended to use it with gecode models. Each gecode constraint has a dedicated decomposition pipeline. Unknown constraints will be decomposed as global constraits with the name of the constraint being the name of the constraint node. 
+
+The output of ZincToWl is a JSON-formatted string that contains, for each known color, the count of occurrences of that color in the graph after the color refinement process (+ the other static features described in the previous section). For test instances, loading the output as json and vectorising its content would be enough, however, for training instances, it may be necessary to pad early instances to add 0s in places of colors that haven't been discovered yet. To know all the known colors (of a colors file) pass the --check-colors argument along with the corresponding color file.
+
 When used with different problems, the coloring refinement process may generate an high number of colors (up to several hundreds). It is highly reccomended to use some form of dimensionality reduction (like PCA) to improve the predictive performance of ML models.
 
 ## Feature Extraction Cost
