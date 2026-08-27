@@ -31,18 +31,18 @@ function parse_commandline(args::Vector{String})
 
     @add_arg_table! s begin
         "input_file"
-        help = "Path to input FlatZinc (.fzn) or graph (.graph) file"
+        help = "Path to input FlatZinc (.fzn) or graph (.graph) file."
         required = false
         "--num-cores", "-c"
-        help = "Number of cores for parallel processing"
+        help = "Number of cores for parallel processing."
         arg_type = Int
         default = 1
         "--wl-iterations", "-k"
-        help = "Number of Weisfeiler-Lehman iterations"
+        help = "Number of Weisfeiler-Lehman iterations."
         arg_type = Int
         default = 1
         "--method", "-m"
-        help = "Weisfeiler-Lehman method"
+        help = "Weisfeiler-Lehman method."
         arg_type = String
         default = "wl-nc"
         range_tester = x -> x in ["wl", "wl-n", "wl-e", "wl-ne", "wl-nc", "wl-nec", "wl-u", "wl-un", "wl-ue", "wl-une", "wl-unc", "wl-unec", "wl-a", "wl-an", "wl-ae", "wl-ane", "wl-anc", "wl-anec"]
@@ -51,11 +51,11 @@ function parse_commandline(args::Vector{String})
         arg_type = String
         default = "colors.bin"
         "--training", "-t"
-        help = "whether it is training or testing (training mode add unseen colors to the colors dict)"
+        help = "whether it is training or testing (training mode add unseen colors to the colors dict)."
         arg_type = Bool
         default = false
         "--check-colors"
-        help = "Prints all the colors of a color file to stdout. It is ignored if a .fzn or .graph file is passed"
+        help = "Prints all the colors of a color file to stdout. It is ignored if a .fzn or .graph file is passed."
         arg_type = String
         required = false
     end
@@ -150,7 +150,7 @@ function main(args::Vector{String}=copy(ARGS))
         node_colors = wl_node_edge_cut_directed_all_levels(g, colors, wl_iterations, training, num_cores)
 
     elseif method == "wl-u"
-        println(stderr, "WARNING: undirected graphs are not recomended to use and are kept for testing purposes only")
+        println(stderr, "WARNING: undirected graphs are not recommended to use and are kept for testing purposes only")
         node_colors = wl_undirected_last(g, colors, wl_iterations, training)
     elseif method == "wl-un"
         println(stderr, "WARNING: undirected graphs are not recommended to use and are kept for testing purposes only")
