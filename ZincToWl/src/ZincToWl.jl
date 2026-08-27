@@ -62,20 +62,17 @@ function parse_commandline(args::Vector{String})
 
     return parse_args(args, s)
 end
-function format_colors(colors_arr::Vector{UInt64}, close::Bool)::String
+function format_colors(colors_arr::Vector{UInt64}, colors::Dict{UInt64,UInt64})::String
     counts = Dict{UInt64,Int}()
     for c in colors_arr
         counts[c] = get(counts, c, 0) + 1
     end
 
     io = IOBuffer()
-    (c, count), remaining_pairs = Iterators.peel(counts)
-    print(io, "{\n\t\"$c\":$count")
-    for (c, count) in remaining_pairs
-        print(io, ",\n\t\"", c, "\":", count)
-    end
-    if close
-        print(io, "\n}")
+    (color), remaining_pairs = Iterators.peel(values(colors))
+    print(io, "{\n\t\"$color\":$(get(counts, color, 0))")
+    for color in remaining_pairs
+        print(io, ",\n\t\"", color, "\":", get(counts, color, 0))
     end
     return String(take!(io))
 end
@@ -170,7 +167,7 @@ function main(args::Vector{String}=copy(ARGS))
 
     end
 
-    print("\n$(format_colors(node_colors, false))")
+    print("\n$(format_colors(node_colors, colors))")
     print(",\n\t\"n_nodes\":$(extra_info["n_nodes"])")
     print(",\n\t\"cpv\":$(extra_info["cpv"])")
     print(",\n\t\"cpp\":$(extra_info["cpp"])")
