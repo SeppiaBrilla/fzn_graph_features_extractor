@@ -1,0 +1,4 @@
+* #variable= 3 #constraint= 2
+soft: 100 ;
++1 x1 +1 x2 = 1 ;
+[10] -1 x2 +1 x3 >= 0 ;

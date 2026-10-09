@@ -47,12 +47,6 @@ path = "../FlatzincToGraph"
 uuid = "6ea5acb2-633c-473f-8148-2c2fe4b1a296"
 version = "0.1.0"
 
-[[deps.PbToGraph]]
-deps = ["FlatzincToGraph", "Parsers", "UUIDs"]
-path = "../PbToGraph"
-uuid = "a7e12f68-7c82-4fa2-bf48-38fae1208a0d"
-version = "0.1.0"
-
 [[deps.Glob]]
 git-tree-sha1 = "246c628cec062230b7d183aab88841fa94fcabe9"
 uuid = "c27321d9-0574-5035-807b-f59d2c89b15c"

@@ -2,6 +2,7 @@ module ZincToWl
 
 using ArgParse: check_type
 using FlatzincToGraph
+using PbToGraph
 using ArgParse
 
 include("wl_features/Helper.jl")
@@ -26,12 +27,12 @@ using .Helper
 
 function parse_commandline(args::Vector{String})
     s = ArgParseSettings(
-        description="ZincToWl: Convert FlatZinc models to Weisfeiler-Lehman graph representations."
+        description="ZincToWl: Convert FlatZinc/PB models to Weisfeiler-Lehman graph representations."
     )
 
     @add_arg_table! s begin
         "input_file"
-        help = "Path to input FlatZinc (.fzn) or graph (.graph) file."
+        help = "Path to input FlatZinc (.fzn), PB (.opb, .wbo, .xz), or graph (.graph) file."
         required = false
         "--num-cores", "-c"
         help = "Number of cores for parallel processing."
@@ -69,10 +70,15 @@ function format_colors(colors_arr::Vector{UInt64}, colors::Dict{UInt64,UInt64}):
     end
 
     io = IOBuffer()
-    (color), remaining_pairs = Iterators.peel(values(colors))
-    print(io, "{\n\t\"$color\":$(get(counts, color, 0))")
-    for color in remaining_pairs
-        print(io, ",\n\t\"", color, "\":", get(counts, color, 0))
+    peeled = Iterators.peel(values(colors))
+    if isnothing(peeled)
+        print(io, "{}")
+    else
+        color, remaining_pairs = peeled
+        print(io, "{\n\t\"$color\":$(get(counts, color, 0))")
+        for color in remaining_pairs
+            print(io, ",\n\t\"", color, "\":", get(counts, color, 0))
+        end
     end
     return String(take!(io))
 end
@@ -106,6 +112,8 @@ function main(args::Vector{String}=copy(ARGS))
 
     if endswith(input_file, ".fzn")
         g = FlatzincToGraph.flatzinc_to_graph(input_file, num_cores)
+    elseif endswith(input_file, ".opb") || endswith(input_file, ".wbo") || endswith(input_file, ".opb.xz") || endswith(input_file, ".wbo.xz") || (endswith(input_file, ".xz") && !endswith(input_file, ".fzn.xz"))
+        g = PbToGraph.pb_to_graph(input_file, num_cores)
     elseif endswith(input_file, ".graph")
         g = load_graph(input_file)
     else
