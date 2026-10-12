@@ -161,21 +161,15 @@ function add_solve_to_graph!(graph::Graph, solve::Union{Nothing,SolveType}, vari
 
     obj_name = "obj"
     obj_id = hash(obj_name)
-    obj_node = get(graph.node_dict, obj_id, nothing)
-    if isnothing(obj_node)
-        obj_node = Node(obj_name, :var_node, obj_id, :int, 0)
-        add_node(graph, obj_node)
-    end
+    obj_node = Node(obj_name, :var_node, obj_id, :int, 0)
+    add_node(graph, obj_node)
 
     eq_label = "$(sum_node.id)=$(obj_node.id)"
     eq_hash = hash(eq_label)
-    eq_node = get(graph.node_dict, eq_hash, nothing)
-    if isnothing(eq_node)
-        eq_node = Node(eq_label, :equality_node, eq_hash)
-        add_node(graph, eq_node)
-        add_edge(graph, sum_node.id, eq_node.id, Edge(EDGE_0))
-        add_edge(graph, obj_node.id, eq_node.id, Edge(EDGE_0))
-    end
+    eq_node = Node(eq_label, :equality_node, eq_hash)
+    add_node(graph, eq_node)
+    add_edge(graph, sum_node.id, eq_node.id, Edge(EDGE_0))
+    add_edge(graph, obj_node.id, eq_node.id, Edge(EDGE_0))
 
     if solve.type === :min
         min_label = "Minimise(obj)"
