@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  :root {
+    --bg: #0f1218;
+    --bg2: #161a22;
+    --panel: #1a1f29;
+    --border: #2a3140;
+    --text: #d7dce4;
+    --muted: #8a93a3;
+    --accent: #6cb2ff;
+    --root: #ffd166;
+    --refined: #7ee0a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font: 13px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: nowrap;           /* single row, always */
+    min-height: 46px;
+  }
+  header h1 {
+    font-size: 14px; font-weight: 600; margin: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 0 1 auto; min-width: 60px; max-width: 36%;
+  }
+  header h1 .sub { color: var(--muted); font-weight: 400; }
+  header .stat { color: var(--muted); white-space: nowrap; flex: 0 0 auto; font-size: 12px; }
+  header .stat b { color: var(--text); }
+  header .spacer { flex: 1 1 auto; min-width: 8px; }
+  header input[type="search"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 9px;
+    width: 190px;
+    outline: none;
+    flex: 0 0 auto;
+  }
+  header input[type="search"]:focus { border-color: var(--accent); }
+  header select, header button {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 9px;
+    cursor: pointer;
+    font: inherit;
+    flex: 0 0 auto;
+  }
+  header button:hover, header select:hover { border-color: var(--accent); }
+
+  main { flex: 1; display: flex; min-height: 0; }
+  #canvas-wrap { flex: 1; position: relative; min-width: 0; overflow: hidden; }
+  canvas#canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+
+  #hint {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+    color: var(--muted);
+    font-size: 11px;
+    background: rgba(15, 18, 24, 0.8);
+    padding: 4px 8px;
+    border-radius: 6px;
+    pointer-events: none;
+    animation: hintfade 1s ease 9s forwards;
+  }
+  @keyframes hintfade { to { opacity: 0; } }
+
+  #legend-note {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    color: var(--muted);
+    font-size: 11px;
+    background: rgba(15, 18, 24, 0.8);
+    padding: 5px 8px;
+    border-radius: 6px;
+    pointer-events: none;
+    text-align: right;
+    line-height: 1.6;
+  }
+  #legend-note .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; vertical-align: -1px; }
+
+  #loading {
+    position: absolute;
+    inset: 0;
+    display: none;               /* hidden unless .show */
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(15, 18, 24, 0.92);
+    z-index: 10;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  #loading.show { display: flex; }
+  #loading .spin {
+    width: 26px; height: 26px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  aside {
+    width: 400px;
+    flex: 0 0 400px;
+    border-left: 1px solid var(--border);
+    background: var(--bg2);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  section { border-bottom: 1px solid var(--border); padding: 10px 14px; flex: none; }
+  section h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .muted { color: var(--muted); }
+  .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace; }
+  .nowrap { white-space: nowrap; }
+
+  /* timeline */
+  #timeline { display: flex; align-items: center; gap: 8px; }
+  #timeline input[type="range"] { flex: 1; accent-color: var(--accent); min-width: 0; }
+  #timeline .tlabel { flex: 0 0 auto; text-align: center; white-space: nowrap; font-size: 12px; min-width: 86px; }
+  #timeline button { padding: 3px 9px; flex: 0 0 auto; }
+  #growth { width: 100%; height: 90px; display: block; }
+
+  /* legend / lists */
+  .citem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .citem:hover { background: var(--panel); }
+  .citem.sel { border-color: var(--accent); background: #1d2a3d; }
+  .swatch { width: 13px; height: 13px; border-radius: 3px; flex: none; border: 1px solid rgba(255,255,255,0.25); }
+  .cname { min-width: 46px; color: var(--accent); flex: 0 0 auto; }
+  .ccount { margin-left: auto; color: var(--muted); white-space: nowrap; font-size: 12px; }
+  .bar { height: 4px; border-radius: 2px; background: var(--border); position: relative; overflow: hidden; flex: 1 1 auto; min-width: 20px; }
+  .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; }
+
+  /* details */
+  #details .kv { display: grid; grid-template-columns: 92px 1fr; gap: 2px 10px; align-items: start; }
+  #details .kv b { color: var(--muted); font-weight: 400; }
+  #details .kv > span { min-width: 0; overflow-wrap: anywhere; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    white-space: nowrap;
+    margin: 1px 0;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip .swatch { width: 9px; height: 9px; }
+  .op { color: var(--muted); padding: 0 3px; }
+
+  /* evolution strip */
+  .evo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    margin-top: 6px;
+    font-size: 12px;
+  }
+  .evo .step { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .evo .lvl {
+    flex: 0 0 auto;
+    font-size: 10px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 4px;
+  }
+  .evo .arrow { color: var(--accent); font-weight: bold; }
+  .evo .note { color: var(--muted); font-size: 11px; }
+
+  #usage-list { max-height: 150px; overflow-y: auto; }
+  #usage-list .citem .cname { min-width: 0; }
+
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: rgba(15, 18, 24, 0.96);
+    border: 1px solid var(--border);
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 100;
+    display: none;
+    max-width: 340px;
+  }
+  #tooltip .h { font-weight: 600; margin-bottom: 3px; }
+
+  .kinds { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .kinds label { display: flex; gap: 5px; align-items: center; cursor: pointer; color: var(--muted); font-size: 12px; }
+  .kinds input { accent-color: var(--accent); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .listnote { font-size: 11px; color: var(--muted); margin: 2px 0 6px; }
+
+  #search-results {
+    position: absolute;
+    z-index: 50;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    min-width: 330px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  #search-results .citem { padding: 6px 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="doc-title">__TITLE__</h1>
+  <span class="stat" id="stat"></span>
+  <div class="spacer"></div>
+  <input type="search" id="search" placeholder="search color / type / sig…" autocomplete="off">
+  <select id="layout-mode" title="layout mode">
+    <option value="radial">radial</option>
+    <option value="dagre">tree (layered)</option>
+  </select>
+  <button id="btn-relayout" title="re-run layout">↻ layout</button>
+  <button id="btn-fit" title="fit to view">fit</button>
+</header>
+
+<main>
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div id="hint">drag = pan · wheel = zoom · click a color = derivation + evolution</div>
+    <div id="legend-note"></div>
+    <div id="loading"><div class="spin"></div><div id="loading-text">computing layout…</div></div>
+    <div id="search-results"></div>
+  </div>
+  <aside>
+    <section>
+      <h2>Discovery timeline</h2>
+      <div id="timeline">
+        <button id="btn-back" title="previous file">‹</button>
+        <input type="range" id="tl-range" min="0" max="0" value="0">
+        <button id="btn-play" title="animate discovery">▶</button>
+        <span class="tlabel" id="tl-label"></span>
+      </div>
+      <canvas id="growth" height="90"></canvas>
+      <div class="row muted" id="growth-note" style="font-size:11px"></div>
+    </section>
+    <section>
+      <h2>Colors at this point</h2>
+      <div class="kinds" id="kind-filters">
+        <label><input type="checkbox" data-kind="type" checked><span class="dot" style="background:var(--root)"></span>type roots</label>
+        <label><input type="checkbox" data-kind="cut" checked><span class="dot" style="background:#ff9e64"></span>cut roots</label>
+        <label><input type="checkbox" data-kind="neutral" checked><span class="dot" style="background:#c792ea"></span>neutral</label>
+        <label><input type="checkbox" data-kind="refined" checked><span class="dot" style="background:var(--refined)"></span>refined</label>
+        <label><input type="checkbox" data-kind="unknown" checked><span class="dot" style="background:#5c6370"></span>unobserved</label>
+      </div>
+      <div class="listnote">★ / white ring = already present in the colors file · click a row to inspect</div>
+      <div id="colors-list"></div>
+    </section>
+    <section id="details-section" style="display:none">
+      <h2>Color details</h2>
+      <div id="details"></div>
+    </section>
+  </aside>
+</main>
+
+<div id="tooltip"></div>
+
+<script type="application/json" id="viz-data">__COLOR_TREE_DATA__</script>
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ data */
+
+const DATA = JSON.parse(document.getElementById('viz-data').textContent.replace(/<\\\//g, '</'));
+const COLORS = DATA.colors;            // hash -> info
+const FILES = DATA.files;
+const DISCOVERY = DATA.discovery;      // ordered hashes (first-seen order)
+const EDGES = DATA.edges;              // [parentHash, childHash]
+const K = DATA.meta.iterations;
+const N_FILES = DATA.meta.n_files;
+const IS_EDGE_AWARE = ['wl-e', 'wl-ne', 'wl-nec'].includes(DATA.meta.method);
+const IS_CUT_METHOD = ['wl-nc', 'wl-nec'].includes(DATA.meta.method);
+
+/* Stable short ids: c1, c2, ... in discovery order. */
+const hashToId = new Map();
+{
+  let i = 1;
+  for (const h of DISCOVERY) hashToId.set(h, 'c' + (i++));
+  const rest = Object.keys(COLORS).filter(h => !hashToId.has(h))
+    .sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
+  for (const h of rest) hashToId.set(h, 'c' + (i++));
+}
+const idOf = h => hashToId.get(h) || '?';
+
+/* Node model */
+const nodes = new Map();
+for (const h of Object.keys(COLORS)) {
+  const c = COLORS[h];
+  nodes.set(h, {
+    h, id: idOf(h), kind: c.kind, sig: c.sig, seed: c.seed,
+    first_file: c.first_file, first_level: c.first_level,
+    hist: c.hist, g_init: c.g_init, g_final: c.g_final,
+    self: c.self || null, nbs: c.nbs || [], use: c.use || [],
+    x: 0, y: 0, depth: 0,
+    parents: [], children: [],
+  });
+}
+for (const [p, ch] of EDGES) {
+  const pn = nodes.get(p), cn = nodes.get(ch);
+  if (pn && cn) { pn.children.push(ch); cn.parents.push(p); }
+}
+
+/* ---------------------------------------------------------------- palette */
+
+function hashHue(h) {
+  let x = 2166136261 >>> 0;
+  for (let i = 0; i < h.length; i++) {
+    x ^= h.charCodeAt(i);
+    x = Math.imul(x, 16777619) >>> 0;
+  }
+  x ^= x >>> 16; x = Math.imul(x, 2246822507) >>> 0;
+  x ^= x >>> 13; x = Math.imul(x, 3266489909) >>> 0;
+  x ^= x >>> 16;
+  return (x % 3600) / 10;
+}
+function colorOf(h) {
+  return `hsl(${hashHue(h).toFixed(1)} 62% 58%)`;
+}
+const KIND_SHAPE = { type: 'circle', cut: 'diamond', neutral: 'circle', refined: 'circle', unknown: 'square' };
+const KIND_TINT = { type: '#ffd166', cut: '#ff9e64', neutral: '#c792ea', refined: '#7ee0a3', unknown: '#5c6370' };
+function kindLabel(k) {
+  return { type: 'type root', cut: 'cut-node root', neutral: 'neutral root', refined: 'refined', unknown: 'unobserved' }[k] || k;
+}
+
+/* ------------------------------------------------------------- lineage */
+
+/* The self-parent chain of a color is exactly how the color of a node
+   evolves across WL levels: root -> level 1 -> level 2 -> ... */
+function selfChain(h) {
+  const chain = [h];
+  const seen = new Set(chain);
+  let cur = h;
+  while (true) {
+    const n = nodes.get(cur);
+    if (!n || !n.self || seen.has(n.self)) break;
+    cur = n.self;
+    seen.add(cur);
+    chain.push(cur);
+  }
+  return chain.reverse(); // root first
+}
+function ancestorsOf(h, cap = 800) {
+  const seen = new Set([h]);
+  const stack = [h];
+  while (stack.length && seen.size < cap) {
+    const cur = nodes.get(stack.pop());
+    for (const p of cur.parents) if (!seen.has(p)) { seen.add(p); stack.push(p); }
+  }
+  return seen;
+}
+function descendantsOf(h, cap = 800) {
+  const seen = new Set([h]);
+  const stack = [h];
+  while (stack.length && seen.size < cap) {
+    const cur = nodes.get(stack.pop());
+    for (const c of cur.children) if (!seen.has(c)) { seen.add(c); stack.push(c); }
+  }
+  return seen;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+const layoutModeEl = document.getElementById('layout-mode');
+
+function computeLayers() {
+  const roots = [...nodes.values()].filter(n => n.parents.length === 0).map(n => n.h);
+  const depth = new Map();
+  const queue = [];
+  for (const r of roots) { depth.set(r, 0); queue.push(r); }
+  let qi = 0;
+  while (qi < queue.length) {
+    const h = queue[qi++];
+    const d = depth.get(h);
+    for (const ch of nodes.get(h).children) {
+      if (!depth.has(ch) || depth.get(ch) < d + 1) {
+        depth.set(ch, d + 1);
+        queue.push(ch);
+      }
+    }
+  }
+  for (const [h, d] of depth) nodes.get(h).depth = d;
+  return roots;
+}
+
+function layout() {
+  const roots = computeLayers();
+  const mode = layoutModeEl.value;
+
+  // primary parent: the self-parent (previous color of the same node) when
+  // available, otherwise the first parent — used for tree clustering.
+  const treeChildren = new Map();
+  for (const n of nodes.values()) {
+    const p = (n.kind === 'refined' && n.self) ? n.self : (n.parents[0] || null);
+    if (p) {
+      if (!treeChildren.has(p)) treeChildren.set(p, []);
+      treeChildren.get(p).push(n.h);
+    }
+  }
+  const weight = new Map();
+  function weigh(h) {
+    if (weight.has(h)) return weight.get(h);
+    let w = 1;
+    for (const ch of (treeChildren.get(h) || [])) w += weigh(ch);
+    weight.set(h, w);
+    return w;
+  }
+  for (const r of roots) weigh(r);
+
+  const angle = new Map();
+  function place(h, a0, a1) {
+    angle.set(h, (a0 + a1) / 2);
+    const kids = treeChildren.get(h) || [];
+    if (!kids.length) return;
+    const total = kids.reduce((s, k) => s + weight.get(k), 0);
+    let a = a0;
+    for (const k of kids) {
+      const span = (a1 - a0) * (weight.get(k) / total);
+      place(k, a, a + span);
+      a += span;
+    }
+  }
+  {
+    let a = -Math.PI / 2;
+    const total = roots.reduce((s, r) => s + weight.get(r), 0) || 1;
+    for (const r of roots) {
+      const span = 2 * Math.PI * (weight.get(r) / total);
+      place(r, a, a + span);
+      a += span;
+    }
+  }
+
+  if (mode === 'radial') {
+    const R0 = 160, DR = 260;
+    for (const n of nodes.values()) {
+      const d = n.depth;
+      const r0 = R0 + d * DR;
+      const jitter = ((parseInt(n.id.slice(1)) % 7) - 3) * 10;
+      n.x = Math.cos(angle.get(n.h)) * (r0 + jitter);
+      n.y = Math.sin(angle.get(n.h)) * (r0 + jitter);
+    }
+  } else {
+    const byDepth = new Map();
+    for (const n of nodes.values()) {
+      if (!byDepth.has(n.depth)) byDepth.set(n.depth, []);
+      byDepth.get(n.depth).push(n);
+    }
+    const X_GAP = 210, Y_GAP = 26;
+    for (const [d, ns] of byDepth) {
+      ns.sort((x, y) => (angle.get(x.h) || 0) - (angle.get(y.h) || 0));
+      const x = d * X_GAP;
+      ns.forEach((n, i) => {
+        n.x = x;
+        n.y = (i - (ns.length - 1) / 2) * Y_GAP;
+      });
+    }
+  }
+}
+
+/* ---------------------------------------------------------------- canvas */
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvas-wrap');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = window.devicePixelRatio || 1;
+  W = wrap.clientWidth; H = wrap.clientHeight;
+  canvas.width = Math.max(1, W * DPR);
+  canvas.height = Math.max(1, H * DPR);
+  draw();
+}
+window.addEventListener('resize', resize);
+
+let view = { x: 0, y: 0, k: 1 };
+
+function nodeRadius(n) {
+  return 5.5 + 5.5 * Math.log2(1 + Math.max(n.hist[n.hist.length - 1] || 0, 0));
+}
+
+let visibleKinds = new Set(['type', 'cut', 'neutral', 'refined', 'unknown']);
+let t = N_FILES;                 // timeline position (0..N_FILES)
+let selected = null;             // hash
+let hoverNode = null;
+let playing = false, playTimer = null;
+let highlight = null;            // Set of hashes to keep bright (lineage)
+
+function nodeVisibleAt(n, time) {
+  return n.first_file <= time;
+}
+function nodeAlpha(n) {
+  if (!visibleKinds.has(n.kind)) return 0;
+  if (highlight && !highlight.has(n.h)) return 0.10;
+  return nodeVisibleAt(n, t) ? 1 : 0.07;
+}
+
+/* cubic bezier point at parameter s */
+function bez(x1, y1, cx1, cy1, cx2, cy2, x2, y2, s) {
+  const u = 1 - s;
+  const a = u * u * u, b = 3 * u * u * s, c = 3 * u * s * s, d = s * s * s;
+  return [
+    a * x1 + b * cx1 + c * cx2 + d * x2,
+    a * y1 + b * cy1 + c * cy2 + d * y2,
+  ];
+}
+
+function draw() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#0f1218';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(view.x, view.y);
+  ctx.scale(view.k, view.k);
+
+  const thin = Math.min(1.3, 1.1 / view.k);
+
+  // --- edges ---
+  for (const [p, ch] of EDGES) {
+    const pn = nodes.get(p), cn = nodes.get(ch);
+    if (!visibleKinds.has(pn.kind) || !visibleKinds.has(cn.kind)) continue;
+    const pa = nodeAlpha(pn), ca = nodeAlpha(cn);
+    if (pa < 0.5 && ca < 0.5) continue;
+
+    const inLineage = highlight && highlight.has(p) && highlight.has(ch);
+    const isSelfEdge = nodes.get(ch).self === p;
+
+    let stroke, width, alpha;
+    if (inLineage) {
+      stroke = isSelfEdge ? '108,178,255' : '126,224,163';
+      width = isSelfEdge ? Math.min(3.4, 2.8 / view.k) : Math.min(2.2, 1.8 / view.k);
+      alpha = 0.95;
+    } else {
+      stroke = '150,160,180';
+      width = thin;
+      alpha = 0.32 * Math.max(pa, ca);
+    }
+    ctx.strokeStyle = `rgba(${stroke},${alpha})`;
+    ctx.lineWidth = width;
+
+    const x1 = pn.x, y1 = pn.y, x2 = cn.x, y2 = cn.y;
+    const mx = (x1 + x2) / 2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.bezierCurveTo(mx, y1, mx, y2, x2, y2);
+    ctx.stroke();
+
+    // arrowhead toward the child when zoomed in enough
+    if (view.k > 0.85 || inLineage) {
+      const [ax, ay] = bez(x1, y1, mx, y1, mx, y2, x2, y2, 0.62);
+      const [bx, by] = bez(x1, y1, mx, y1, mx, y2, x2, y2, 0.56);
+      const ang = Math.atan2(ay - by, ax - bx);
+      const r = nodeRadius(cn) + 1.5;
+      const tipx = x2 - Math.cos(ang) * 0 ; // arrow tip just before node edge
+      const s = Math.min(1, Math.max(0, 1 - r / Math.hypot(x2 - ax, y2 - ay)));
+      const [tx, ty] = bez(x1, y1, mx, y1, mx, y2, x2, y2, 0.62 + 0.3 * s);
+      const t2 = Math.atan2(ty - ay, tx - ax);
+      const ah = inLineage ? 7 : 5;
+      ctx.fillStyle = `rgba(${stroke},${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - ah * Math.cos(t2 - 0.42), ty - ah * Math.sin(t2 - 0.42));
+      ctx.lineTo(tx - ah * Math.cos(t2 + 0.42), ty - ah * Math.sin(t2 + 0.42));
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  // --- nodes ---
+  const labelFont = Math.max(9, Math.min(13, 11 / view.k));
+  for (const n of nodes.values()) {
+    if (!visibleKinds.has(n.kind)) continue;
+    const a = nodeAlpha(n);
+    if (a < 0.05) continue;
+    const r = nodeRadius(n);
+    const isNew = n.first_file === t;
+
+    ctx.globalAlpha = a;
+    ctx.fillStyle = colorOf(n.h);
+    if (KIND_SHAPE[n.kind] === 'diamond') {
+      ctx.beginPath();
+      ctx.moveTo(n.x, n.y - r * 1.25); ctx.lineTo(n.x + r * 1.25, n.y);
+      ctx.lineTo(n.x, n.y + r * 1.25); ctx.lineTo(n.x - r * 1.25, n.y);
+      ctx.closePath();
+    } else if (KIND_SHAPE[n.kind] === 'square') {
+      ctx.beginPath();
+      ctx.rect(n.x - r * 0.9, n.y - r * 0.9, r * 1.8, r * 1.8);
+    } else {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+    }
+    ctx.fill();
+
+    // kind ring (white if the color is in the seed colors file)
+    ctx.lineWidth = Math.min(2.6, Math.max(1.2, 2 / view.k));
+    ctx.strokeStyle = n.seed ? '#ffffff' : KIND_TINT[n.kind];
+    ctx.stroke();
+
+    if (isNew) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r + 4 + 2 * Math.sin(performance.now() / 300), 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+    if (n.h === selected || n.h === hoverNode) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r + 5, 0, 2 * Math.PI);
+      ctx.strokeStyle = n.h === selected ? '#ffffff' : 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    if (view.k > 0.75 && a > 0.4) {
+      ctx.font = `${labelFont}px "JetBrains Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(215,220,228,0.88)';
+      ctx.fillText(n.id, n.x, n.y - r - 4 / view.k);
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+/* continuous render loop: keeps the "newly discovered" pulse alive */
+(function renderLoop() {
+  let anyNew = false;
+  for (const n of nodes.values()) {
+    if (n.first_file === t) { anyNew = true; break; }
+  }
+  if (playing || anyNew) draw();
+  requestAnimationFrame(renderLoop);
+})();
+
+function fit() {
+  let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  let any = false;
+  for (const n of nodes.values()) {
+    if (!visibleKinds.has(n.kind) || !nodeVisibleAt(n, t)) continue;
+    any = true;
+    const r = nodeRadius(n);
+    minX = Math.min(minX, n.x - r); maxX = Math.max(maxX, n.x + r);
+    minY = Math.min(minY, n.y - r); maxY = Math.max(maxY, n.y + r);
+  }
+  if (!any) return;
+  const pad = 50;
+  const k = Math.min((W - 2 * pad) / (maxX - minX + 1), (H - 2 * pad) / (maxY - minY + 1), 1.6);
+  view.k = k;
+  view.x = W / 2 - (minX + maxX) / 2 * k;
+  view.y = H / 2 - (minY + maxY) / 2 * k;
+}
+
+/* ------------------------------------------------------- loading overlay */
+
+const loadingEl = document.getElementById('loading');
+function showLoading(text) {
+  if (text) document.getElementById('loading-text').textContent = text;
+  loadingEl.classList.add('show');
+}
+function hideLoading() {
+  loadingEl.classList.remove('show');
+}
+
+/* ------------------------------------------------------------- interaction */
+
+let drag = null;
+canvas.addEventListener('mousedown', e => {
+  drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false };
+});
+window.addEventListener('mousemove', e => {
+  if (drag) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    view.x = drag.vx + dx; view.y = drag.vy + dy;
+    draw();
+  } else if (e.target === canvas) {
+    hitTest(e);
+  }
+});
+window.addEventListener('mouseup', e => {
+  if (drag && !drag.moved) {
+    const n = pick(e);
+    if (n) selectNode(n.h);
+    else { selected = null; highlight = null; renderDetails(); renderColorsList(); draw(); }
+  }
+  drag = null;
+});
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const wx = (mx - view.x) / view.k, wy = (my - view.y) / view.k;
+  view.k = Math.min(6, Math.max(0.08, view.k * f));
+  view.x = mx - wx * view.k;
+  view.y = my - wy * view.k;
+  draw();
+}, { passive: false });
+
+function pick(e) {
+  const rect = canvas.getBoundingClientRect();
+  const wx = (e.clientX - rect.left - view.x) / view.k;
+  const wy = (e.clientY - rect.top - view.y) / view.k;
+  let best = null, bd = 1e9;
+  for (const n of nodes.values()) {
+    if (!visibleKinds.has(n.kind) || !nodeVisibleAt(n, t)) continue;
+    const r = nodeRadius(n) + 4;
+    const d = Math.hypot(n.x - wx, n.y - wy);
+    if (d < r && d < bd) { bd = d; best = n; }
+  }
+  return best;
+}
+
+const tooltip = document.getElementById('tooltip');
+function hitTest(e) {
+  const n = pick(e);
+  hoverNode = n ? n.h : null;
+  if (n) {
+    tooltip.style.display = 'block';
+    // clamp to viewport
+    let x = e.clientX + 14, y = e.clientY + 14;
+    const tw = Math.min(340, window.innerWidth - 28);
+    if (x + tw > window.innerWidth) x = Math.max(8, window.innerWidth - tw - 8);
+    if (y + 130 > window.innerHeight) y = Math.max(8, e.clientY - 140);
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+    const c = COLORS[n.h];
+    const chain = selfChain(n.h);
+    tooltip.innerHTML = `<div class="h">${n.id} <span class="muted mono" style="font-size:11px">${n.h.slice(0, 12)}…</span></div>
+      <div>${kindLabel(c.kind)}${c.seed ? ' · <b>in colors file</b>' : ''} · level ${c.first_level}</div>
+      ${c.sig ? `<div class="mono" style="font-size:11px">${escapeHtml(c.sig)}</div>` : ''}
+      <div class="muted">used by ${c.g_final} / ${N_FILES} graphs · ${c.hist[c.hist.length - 1]} nodes</div>
+      ${chain.length > 1 ? `<div class="muted" style="margin-top:3px">evolution: ${chain.map(h => idOf(h)).join(' → ')}</div>` : ''}`;
+  } else {
+    tooltip.style.display = 'none';
+  }
+  draw();
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"');
+}
+
+/* ---------------------------------------------------------------- timeline */
+
+const rangeEl = document.getElementById('tl-range');
+rangeEl.max = N_FILES;
+rangeEl.value = N_FILES;
+
+rangeEl.addEventListener('input', () => { setTime(+rangeEl.value); });
+document.getElementById('btn-back').addEventListener('click', () => { setTime(Math.max(0, t - 1)); });
+document.getElementById('btn-play').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('btn-play').textContent = playing ? '⏸' : '▶';
+  if (playing) {
+    if (t >= N_FILES) setTime(0);
+    playTimer = setInterval(() => {
+      if (t >= N_FILES) {
+        playing = false;
+        document.getElementById('btn-play').textContent = '▶';
+        clearInterval(playTimer);
+        return;
+      }
+      setTime(t + 1);
+    }, 260);
+  } else clearInterval(playTimer);
+});
+
+function setTime(nt) {
+  t = nt;
+  rangeEl.value = t;
+  updateTimeUI();
+  renderColorsList();
+  renderDetails();
+  draw();
+}
+
+function visibleCount() {
+  let c = 0;
+  for (const n of nodes.values()) if (n.first_file <= t) c++;
+  return c;
+}
+
+function updateTimeUI() {
+  document.getElementById('tl-label').innerHTML =
+    t === 0 ? 'start' : `file ${t} <span class="muted">/${N_FILES}</span>`;
+  document.getElementById('stat').innerHTML =
+    `<b>${DATA.meta.n_colors}</b> colors · <b>${visibleCount()}</b> discovered · ` +
+    `<span class="mono" style="font-size:11px">${DATA.meta.method} k=${K}</span>`;
+  drawGrowth();
+}
+
+function drawGrowth() {
+  const gc = document.getElementById('growth');
+  const g = gc.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const cw = gc.clientWidth || 372;
+  const ch = 90;
+  gc.width = cw * dpr; gc.height = ch * dpr;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, cw, ch);
+  const npf = DATA.new_per_file;
+  let cum = 0;
+  const cums = npf.map(v => (cum += v));
+  const max = Math.max(...cums, 1);
+  const bw = cw / Math.max(npf.length, 1);
+  for (let i = 0; i < npf.length; i++) {
+    const x = i * bw;
+    const yCum = ch - (cums[i] / max) * (ch - 14) - 4;
+    g.fillStyle = i < t ? 'rgba(108,178,255,0.28)' : 'rgba(108,178,255,0.10)';
+    g.fillRect(x, yCum, Math.max(bw - 0.5, 0.5), ch - 4 - yCum);
+    const yNew = ch - (npf[i] / max) * (ch - 14) - 4;
+    g.fillStyle = i < t ? '#7ee0a3' : 'rgba(126,224,163,0.25)';
+    g.fillRect(x, yNew, Math.max(bw - 0.5, 0.5), 3);
+  }
+  const px = t * bw;
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = 1;
+  g.beginPath(); g.moveTo(px, 0); g.lineTo(px, ch); g.stroke();
+  document.getElementById('growth-note').textContent =
+    `dictionary growth: ${cums[t - 1] || 0} colors after ${t} files (green ticks = new per file)`;
+}
+
+/* ------------------------------------------------------------- color list */
+
+const listEl = document.getElementById('colors-list');
+function renderColorsList() {
+  const arr = [...nodes.values()].filter(n => n.first_file <= t && visibleKinds.has(n.kind));
+  arr.sort((a, b) => {
+    const ha = a.hist[a.hist.length - 1] || 0, hb = b.hist[b.hist.length - 1] || 0;
+    if (hb !== ha) return hb - ha;
+    return DISCOVERY.indexOf(a.h) - DISCOVERY.indexOf(b.h);
+  });
+  const maxCount = Math.max(1, ...arr.map(n => n.hist[n.hist.length - 1] || 0));
+  listEl.innerHTML = '';
+  for (const n of arr.slice(0, 250)) {
+    const el = document.createElement('div');
+    el.className = 'citem' + (n.h === selected ? ' sel' : '');
+    const cnt = n.hist[n.hist.length - 1] || 0;
+    el.innerHTML = `
+      <span class="swatch" style="background:${colorOf(n.h)};outline:2px solid ${KIND_TINT[n.kind]}55"></span>
+      <span class="cname mono">${n.id}</span>
+      <span class="bar"><i style="width:${(cnt / maxCount) * 100}%;background:${colorOf(n.h)}"></i></span>
+      <span class="ccount nowrap">${cnt.toLocaleString()} nodes · ${n.g_final}g${n.seed ? ' ·★' : ''}</span>`;
+    el.addEventListener('click', () => selectNode(n.h));
+    listEl.appendChild(el);
+  }
+  if (arr.length > 250) {
+    const m = document.createElement('div');
+    m.className = 'muted';
+    m.style.padding = '6px';
+    m.textContent = `… ${arr.length - 250} more (use search)`;
+    listEl.appendChild(m);
+  }
+}
+
+document.getElementById('kind-filters').addEventListener('change', e => {
+  const k = e.target.dataset.kind;
+  if (e.target.checked) visibleKinds.add(k); else visibleKinds.delete(k);
+  renderColorsList(); draw();
+});
+
+/* ---------------------------------------------------------------- details */
+
+const detailsEl = document.getElementById('details');
+const detailsSection = document.getElementById('details-section');
+
+function chip(h, extra = '') {
+  const n = nodes.get(h);
+  if (!n) return `<span class="chip">?</span>`;
+  return `<span class="chip" data-h="${h}" title="${n.h}">${extra}<span class="swatch" style="background:${colorOf(h)};outline:2px solid ${KIND_TINT[n.kind]}55"></span><span class="mono">${n.id}</span></span>`;
+}
+
+function selectNode(h) {
+  selected = h;
+  // highlight the full lineage: everything this color derives from and
+  // everything derived from it
+  highlight = new Set([...ancestorsOf(h), ...descendantsOf(h)]);
+  renderDetails();
+  renderColorsList();
+  draw();
+}
+
+detailsEl.addEventListener('click', e => {
+  const chipEl = e.target.closest('.chip');
+  if (chipEl && chipEl.dataset.h) selectNode(chipEl.dataset.h);
+});
+
+function renderDetails() {
+  if (!selected) { detailsSection.style.display = 'none'; return; }
+  const n = nodes.get(selected);
+  const c = COLORS[selected];
+  detailsSection.style.display = '';
+  let html = `<div class="row"><span class="swatch" style="width:18px;height:18px;background:${colorOf(n.h)};outline:2px solid ${KIND_TINT[n.kind]}88"></span>
+    <b class="mono" style="font-size:15px">${n.id}</b><span class="muted mono" style="font-size:11px">${n.h}</span></div>`;
+  html += `<div class="kv" style="margin-top:6px">
+    <b>kind</b><span>${kindLabel(c.kind)}${c.seed ? ' · present in colors file' : ' · new in this replay'}</span>
+    <b>signature</b><span class="mono" style="font-size:12px">${c.sig ? escapeHtml(c.sig) : '—'}</span>
+    <b>first seen</b><span>file ${c.first_file} (${FILES[c.first_file - 1] ? escapeHtml(shortName(FILES[c.first_file - 1])) : '?'}) · level ${c.first_level}</span>
+    <b>usage</b><span>${c.hist[c.hist.length - 1].toLocaleString()} nodes · ${c.g_final} / ${N_FILES} graphs</span>
+    <b>derived from</b><span>${n.parents.length ? n.parents.map(p => chip(p)).join(' ') : '<span class="muted">nothing (root)</span>'}</span>
+    <b>derives</b><span>${n.children.length ? n.children.map(p => chip(p)).join(' ') : '<span class="muted">nothing</span>'}</span>
+  </div>`;
+
+  // ---- evolution strip: how a node's color changes level by level ----
+  const chain = selfChain(selected);
+  html += `<div class="evo"><b style="color:var(--accent)">evolution of the node color</b>`;
+  if (chain.length === 1) {
+    if (IS_CUT_METHOD && c.kind === 'cut') {
+      html += `<div class="step">${chip(chain[0])}<span class="lvl">level 0</span></div>
+        <div class="note">cut nodes keep their initial color (${escapeHtml(DATA.meta.method)} blocks propagation through them)</div>`;
+    } else {
+      html += `<div class="step">${chip(chain[0])}<span class="lvl">level 0</span></div>
+        <div class="note">root color — never refined</div>`;
+    }
+  } else {
+    for (let i = 0; i < chain.length; i++) {
+      const h = chain[i];
+      const info = nodes.get(h);
+      html += `<div class="step"><span class="lvl">level ${i}</span>${chip(h)}`;
+      if (info.sig) html += `<span class="muted mono" style="font-size:11px">${escapeHtml(info.sig)}</span>`;
+      html += `</div>`;
+      if (i < chain.length - 1) {
+        const nxt = nodes.get(chain[i + 1]);
+        const nbTotal = nxt.nbs.reduce((s, x) => s + x[3], 0);
+        html += `<div class="step"><span class="arrow">↓</span><span class="muted" style="font-size:11px">refine: hash(self, ${nbTotal} neighbor${nbTotal === 1 ? '' : 's'})</span></div>`;
+      }
+    }
+  }
+  html += `</div>`;
+
+  // ---- derivation recipe ----
+  if (c.kind === 'refined') {
+    html += `<div class="evo"><b style="color:var(--refined)">derivation (level ${c.first_level})</b>
+      <div class="step"><span class="lvl">self</span>${chip(c.self)}
+      <span class="op">+ sorted neighbors:</span></div>`;
+    if (!c.nbs.length) {
+      html += `<div class="note">no neighbors — color unchanged from self</div>`;
+    } else {
+      for (const [mixed, nb, labels, mult] of c.nbs) {
+        let s = `<div class="step">${chip(nb)}`;
+        if (IS_EDGE_AWARE && labels) s += `<span class="op">·edge ${escapeHtml(labels)}</span>`;
+        if (mult > 1) s += `<span class="op">×${mult}</span>`;
+        s += `</div>`;
+        html += s;
+      }
+    }
+    html += `<div class="note">hash(${idOf(c.self)}, [${c.nbs.map(x => idOf(x[1]) + (x[3] > 1 ? '×' + x[3] : '')).join(', ')}])${IS_EDGE_AWARE ? ' — neighbor colors combined with edge hashes' : ''}</div></div>`;
+  }
+
+  // ---- usage in files ----
+  if (c.use && c.use.length) {
+    html += `<h2 style="margin-top:10px">Most used in</h2><div id="usage-list">`;
+    const use = c.use.slice().sort((a, b) => b[1] - a[1]);
+    for (const [fi, cnt] of use) {
+      html += `<div class="citem"><span class="muted mono" style="min-width:44px">f${fi}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(shortName(FILES[fi - 1] || ''))}</span>
+        <span class="ccount">${cnt} nodes</span></div>`;
+    }
+    html += `</div>`;
+  }
+  detailsEl.innerHTML = html;
+}
+
+function shortName(p) {
+  return p.split('/').slice(-2).join('/');
+}
+
+/* ------------------------------------------------------------------ search */
+
+const searchEl = document.getElementById('search');
+const searchRes = document.getElementById('search-results');
+function positionSearchDropdown() {
+  const r = searchEl.getBoundingClientRect();
+  const wrapR = wrap.getBoundingClientRect();
+  searchRes.style.top = (r.bottom - wrapR.top + 6) + 'px';
+  searchRes.style.left = Math.max(8, r.left - wrapR.left + r.width - 330) + 'px';
+}
+searchEl.addEventListener('input', () => {
+  const q = searchEl.value.trim().toLowerCase();
+  if (!q) { searchRes.style.display = 'none'; return; }
+  const hits = [...nodes.values()].filter(n =>
+    n.h.toLowerCase().includes(q) || n.id.toLowerCase() === q ||
+    (n.sig || '').toLowerCase().includes(q) || kindLabel(n.kind).toLowerCase().includes(q)
+  ).slice(0, 20);
+  if (!hits.length) { searchRes.style.display = 'none'; return; }
+  searchRes.innerHTML = '';
+  for (const n of hits) {
+    const el = document.createElement('div');
+    el.className = 'citem';
+    el.innerHTML = `<span class="swatch" style="background:${colorOf(n.h)};outline:2px solid ${KIND_TINT[n.kind]}55"></span>
+      <span class="cname mono">${n.id}</span>
+      <span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">${n.sig ? escapeHtml(n.sig) : kindLabel(n.kind)}</span>
+      <span class="ccount mono">${n.h.slice(0, 10)}…</span>`;
+    el.addEventListener('click', () => {
+      searchRes.style.display = 'none';
+      selectNode(n.h);
+      centerOn(n);
+    });
+    searchRes.appendChild(el);
+  }
+  positionSearchDropdown();
+  searchRes.style.display = 'block';
+});
+searchEl.addEventListener('keydown', e => { if (e.key === 'Escape') { searchEl.value = ''; searchRes.style.display = 'none'; } });
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search-results') && e.target !== searchEl) searchRes.style.display = 'none';
+});
+
+function centerOn(n) {
+  if (n.first_file > t) setTime(n.first_file);
+  view.k = Math.max(view.k, 1.2);
+  view.x = W / 2 - n.x * view.k;
+  view.y = H / 2 - n.y * view.k;
+  draw();
+}
+
+/* --------------------------------------------------------------- controls */
+
+document.getElementById('btn-relayout').addEventListener('click', () => {
+  showLoading('computing layout…');
+  requestAnimationFrame(() => {
+    try { layout(); fit(); }
+    finally { hideLoading(); draw(); }
+  });
+});
+document.getElementById('btn-fit').addEventListener('click', () => { fit(); draw(); });
+layoutModeEl.addEventListener('change', () => {
+  showLoading('computing layout…');
+  requestAnimationFrame(() => {
+    try { layout(); fit(); }
+    finally { hideLoading(); draw(); }
+  });
+});
+window.addEventListener('keydown', e => {
+  if (e.target === searchEl) return;
+  if (e.key === 'ArrowLeft') setTime(Math.max(0, t - 1));
+  if (e.key === 'ArrowRight') setTime(Math.min(N_FILES, t + 1));
+  if (e.key === ' ') { e.preventDefault(); document.getElementById('btn-play').click(); }
+});
+
+/* ------------------------------------------------------------------- init */
+
+document.getElementById('doc-title').innerHTML =
+  `${escapeHtml(DATA.meta.title)} <span class="sub">· ${N_FILES} graphs</span>`;
+
+document.getElementById('legend-note').innerHTML =
+  `<span class="dot" style="background:${KIND_TINT.type}"></span> type root &nbsp;
+   <span class="dot" style="background:${KIND_TINT.cut};border-radius:0;transform:rotate(45deg)"></span> cut root &nbsp;
+   <span class="dot" style="background:${KIND_TINT.refined}"></span> refined<br>
+   white ring = in colors file${IS_CUT_METHOD ? ' · ' + escapeHtml(DATA.meta.method) + ': cut roots are not refined (isolated)' : ''}`;
+
+resize();
+showLoading('computing layout…');
+requestAnimationFrame(() => {
+  try {
+    layout();
+    fit();
+    updateTimeUI();
+    renderColorsList();
+  } finally {
+    hideLoading();
+    draw();
+  }
+});
+</script>
+</body>
+</html>
