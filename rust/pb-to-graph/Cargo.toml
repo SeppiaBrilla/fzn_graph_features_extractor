@@ -1,0 +1,18 @@
+[package]
+name = "pb-to-graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Parse Pseudo-Boolean (.opb/.wbo) problems into attributed directed graphs"
+
+[lib]
+name = "pb_to_graph"
+path = "src/lib.rs"
+
+[[bin]]
+name = "PbToGraph"
+path = "src/main.rs"
+
+[dependencies]
+flatzinc-to-graph = { path = "../flatzinc-to-graph" }
+xz2 = "0.1"

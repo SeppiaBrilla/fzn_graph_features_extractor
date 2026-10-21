@@ -3,6 +3,7 @@ module ZincToWl
 using ArgParse: check_type
 using FlatzincToGraph
 using PbToGraph
+using SatToGraph
 using ArgParse
 
 include("wl_features/Helper.jl")
@@ -15,6 +16,7 @@ include("wl_features/EdgeWl.jl")
 include("wl_features/NodeEdgeWl.jl")
 include("wl_features/WlNodeCut.jl")
 include("wl_features/WlNodeEdgeCut.jl")
+include("wl_features/WlTrace.jl")
 
 using .GraphLoader
 using .StandardWl
@@ -23,16 +25,17 @@ using .EdgeWl
 using .NodeEdgeWl
 using .WlNodeCut
 using .WlNodeEdgeCut
+using .WlTrace
 using .Helper
 
 function parse_commandline(args::Vector{String})
     s = ArgParseSettings(
-        description="ZincToWl: Convert FlatZinc/PB models to Weisfeiler-Lehman graph representations."
+        description="ZincToWl: Convert FlatZinc/PB/SAT models to Weisfeiler-Lehman graph representations."
     )
 
     @add_arg_table! s begin
         "input_file"
-        help = "Path to input FlatZinc (.fzn), PB (.opb, .wbo, .xz), or graph (.graph) file."
+        help = "Path to input FlatZinc (.fzn), PB (.opb, .wbo), SAT (.cnf), or graph (.graph) file."
         required = false
         "--num-cores", "-c"
         help = "Number of cores for parallel processing."
@@ -112,6 +115,8 @@ function main(args::Vector{String}=copy(ARGS))
 
     if endswith(input_file, ".fzn")
         g = FlatzincToGraph.flatzinc_to_graph(input_file, num_cores)
+    elseif endswith(input_file, ".cnf") || endswith(input_file, ".cnf.xz")
+        g = SatToGraph.sat_to_graph(input_file, num_cores)
     elseif endswith(input_file, ".opb") || endswith(input_file, ".wbo") || endswith(input_file, ".opb.xz") || endswith(input_file, ".wbo.xz") || (endswith(input_file, ".xz") && !endswith(input_file, ".fzn.xz"))
         g = PbToGraph.pb_to_graph(input_file, num_cores)
     elseif endswith(input_file, ".graph")

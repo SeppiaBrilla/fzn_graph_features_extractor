@@ -138,7 +138,7 @@ end
     end
 
     @testset "3. Real Model FlatZinc Feature Extraction Tests" begin
-        fzn_path = joinpath(@__DIR__, "../../FlatzincToGraph/test/fixtures/simple_bool_sat.fzn")
+        fzn_path = joinpath(@__DIR__, "../../../julia/FlatzincToGraph/test/fixtures/simple_bool_sat.fzn")
         g_fzn = flatzinc_to_graph(fzn_path, 1)
         @test length(g_fzn.nodes) > 0
 
@@ -153,7 +153,7 @@ end
     end
 
     @testset "4. Extra Tabular Features Validation" begin
-        fzn_path_knapsack = joinpath(@__DIR__, "../../FlatzincToGraph/test/fixtures/knapsack_int_opt.fzn")
+        fzn_path_knapsack = joinpath(@__DIR__, "../../../julia/FlatzincToGraph/test/fixtures/knapsack_int_opt.fzn")
         g_knapsack = flatzinc_to_graph(fzn_path_knapsack, 1)
         
         info = extract_extra_info(g_knapsack)

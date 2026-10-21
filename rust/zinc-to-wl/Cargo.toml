@@ -1,0 +1,16 @@
+[package]
+name = "zinc-to-wl"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Weisfeiler-Lehman graph feature extractor for FlatZinc/PB models"
+
+[[bin]]
+name = "ZincToWl"
+path = "src/main.rs"
+
+[dependencies]
+flatzinc-to-graph = { path = "../flatzinc-to-graph" }
+mimalloc = "0.1.52"
+pb-to-graph = { path = "../pb-to-graph" }
+rayon = "1.10"

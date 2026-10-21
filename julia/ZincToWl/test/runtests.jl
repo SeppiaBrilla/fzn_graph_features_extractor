@@ -5,4 +5,5 @@ using ZincToWl
     include("test_graph_loader.jl")
     include("test_helper.jl")
     include("test_wl_features.jl")
+    include("test_wl_trace.jl")
 end

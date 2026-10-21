@@ -1,0 +1,18 @@
+[package]
+name = "flatzinc-to-graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Parse FlatZinc constraint models and build attributed directed graphs"
+
+[lib]
+name = "flatzinc_to_graph"
+path = "src/lib.rs"
+
+[[bin]]
+name = "FlatzincToGraph"
+path = "src/main.rs"
+
+[dependencies]
+rayon = "1.10"
+flate2 = "1.0"

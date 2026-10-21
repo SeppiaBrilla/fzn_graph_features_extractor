@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "4c0c1569bfb26e41a9bee3725fe7c7d1a54438e7"
+project_hash = "e7c4dbba8108f47a48dd5c5d21cb3b4f285c74e5"
 
 [[deps.ArgParse]]
 deps = ["Logging", "TextWrap"]
@@ -45,12 +45,6 @@ version = "1.11.0"
 deps = ["PackageCompiler", "Parsers", "UUIDs"]
 path = "../FlatzincToGraph"
 uuid = "6ea5acb2-633c-473f-8148-2c2fe4b1a296"
-version = "0.1.0"
-
-[[deps.PbToGraph]]
-deps = ["FlatzincToGraph", "Parsers", "UUIDs"]
-path = "../PbToGraph"
-uuid = "a7e12f68-7c82-4fa2-bf48-38fae1208a0d"
 version = "0.1.0"
 
 [[deps.Glob]]
@@ -131,6 +125,12 @@ git-tree-sha1 = "32a4e09c5f29402573d673901778a0e03b0807b9"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "2.8.6"
 
+[[deps.PbToGraph]]
+deps = ["FlatzincToGraph", "Parsers", "UUIDs"]
+path = "../PbToGraph"
+uuid = "a7e12f68-7c82-4fa2-bf48-38fae1208a0d"
+version = "0.1.0"
+
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "Random", "SHA", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
@@ -173,6 +173,12 @@ version = "1.0.1"
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 version = "0.7.0"
+
+[[deps.SatToGraph]]
+deps = ["FlatzincToGraph", "Parsers", "UUIDs"]
+path = "../SatToGraph"
+uuid = "e892c53a-9694-4b55-a043-41bb02fe2b7f"
+version = "0.1.0"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -217,7 +223,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.ZincToWl]]
-deps = ["ArgParse", "FlatzincToGraph", "PackageCompiler", "Serialization"]
+deps = ["ArgParse", "FlatzincToGraph", "PackageCompiler", "PbToGraph", "SatToGraph", "Serialization", "Sockets"]
 path = "."
 uuid = "39c23178-992c-4e63-a3ee-0a2cce8e9c4c"
 version = "0.1.0"
