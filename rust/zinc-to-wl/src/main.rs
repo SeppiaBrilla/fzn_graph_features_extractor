@@ -128,7 +128,19 @@ fn parse_args(args: &[String]) -> Opts {
                 colors = v.clone();
             }
             "-t" | "--training" => {
-                training = true;
+                if let Some(next) = args.get(i + 1) {
+                    if next == "true" {
+                        training = true;
+                        i += 1;
+                    } else if next == "false" {
+                        training = false;
+                        i += 1;
+                    } else {
+                        training = true;
+                    }
+                } else {
+                    training = true;
+                }
             }
             "--check-colors" => {
                 i += 1;
