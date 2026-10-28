@@ -1274,9 +1274,12 @@ pub fn global_dispatch_entry(identifier: &str) -> Option<(&'static str, &'static
     })
 }
 
-/// `decompose_unknown_global`: node type = constraint name itself.
+/// `decompose_unknown_global`: node type = constraint name + `_global`
+/// suffix, so solver-specific globals (non-gecode FlatZinc) are recognized
+/// as cut nodes by the WL feature extractor (see `is_unknown_global`).
 pub fn decompose_unknown_global(args: &[Arg], graph: &mut Graph, global_name: &str) {
-    decompose_generic_global(args, graph, global_name, global_name);
+    let node_type = format!("{}_global", global_name);
+    decompose_generic_global(args, graph, global_name, &node_type);
 }
 
 pub fn dispatch(identifier: &str, args: &[Arg], graph: &mut Graph) {

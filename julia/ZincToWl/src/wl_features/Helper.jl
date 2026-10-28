@@ -31,9 +31,17 @@ const CUT_NODES = union(GLOBAL_NODES, Set{Symbol}([
 @inline function is_global(node_type::Symbol)::Bool
     return in(node_type, GLOBAL_NODES)
 end
+is_global(node_type::String)::Bool = is_global(Symbol(node_type))
+
+@inline function is_unknown_global(node_type::Symbol)::Bool
+    # unknown/solver-specific globals (e.g. `chuffed_array_int_minimum`) are
+    # decomposed with an `_global`-suffixed node type by the parser
+    return endswith(string(node_type), "_global")
+end
+is_unknown_global(node_type::String)::Bool = is_unknown_global(Symbol(node_type))
 
 @inline function is_cut_node(node_type::Symbol)::Bool
-    return in(node_type, CUT_NODES)
+    return in(node_type, CUT_NODES) || is_unknown_global(node_type)
 end
 is_cut_node(node_type::String)::Bool = is_cut_node(Symbol(node_type))
 
@@ -326,6 +334,6 @@ function extract_extra_info(g, num_cores::Int=1)::Dict{String,Any}
 end
 
 
-export typer, is_global, is_cut_node, GLOBAL_NODES, load_colors, save_colors, tailored_hash, HASH_EDGE_0, HASH_EDGE_1, HASH_EDGE_2, fast_edge_hash, extract_extra_info
+export typer, is_global, is_unknown_global, is_cut_node, GLOBAL_NODES, load_colors, save_colors, tailored_hash, HASH_EDGE_0, HASH_EDGE_1, HASH_EDGE_2, fast_edge_hash, extract_extra_info
 
 end

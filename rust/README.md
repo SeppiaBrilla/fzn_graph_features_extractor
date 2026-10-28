@@ -105,6 +105,21 @@ occurrence count, 0 for unseen ones), then structural features:
 - **Colors file format** is Rust-native (see above); Julia-format files are
   readable for migration.
 
+## Solver Compatibility (Gecode vs non-Gecode FlatZinc)
+
+Feature extraction works best with **Gecode-flavored FlatZinc**
+(`minizinc --solver gecode`): every Gecode constraint has a dedicated
+decomposition, and the resulting global nodes are recognized as *cut nodes*
+by the `wl-nc`/`wl-nec` kernels.
+
+For non-Gecode FlatZinc, constraints the parser does not know (solver
+builtins like `chuffed_array_int_minimum`) are decomposed generically with
+node type `<constraint_name>_global`, and the `_global` suffix makes them
+cut nodes as well — so the cut-based features and the
+`"(<source_type>, <target_type>)"` co-occurrence counts cover them. The
+features are still not comparable across solvers (different decomposition
+pipelines); train and test on FlatZinc compiled for the same solver.
+
 ## Performance
 
 On the MiniZinc Challenge corpus (160 `.fzn` files, `wl-nc k=1`, one process

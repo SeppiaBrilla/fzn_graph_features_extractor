@@ -99,6 +99,11 @@ function load_graph(filepath::String)::Graph
                     global_name = replace(node_type, "_node" => "")
                     node = Node(global_name * string(globals_count), sym_node_type, idx, var_type, var_dom_size)
                     globals_count += 1
+                elseif endswith(node_type, "_global")
+                    # unknown/solver-specific global (node type suffixed by the parser)
+                    global_name = node_type[1:end-length("_global")]
+                    node = Node(global_name * string(globals_count), sym_node_type, idx, var_type, var_dom_size)
+                    globals_count += 1
                 else
                     node = Node(label, sym_node_type, idx, var_type, var_dom_size)
                 end

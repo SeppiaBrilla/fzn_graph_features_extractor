@@ -123,6 +123,19 @@ The output of `ZincToWl` (both Rust and Julia) is a single JSON object containin
 
 ---
 
+## Solver Compatibility (Gecode vs non-Gecode FlatZinc)
+
+**Feature extraction works best with Gecode-flavored FlatZinc** (`minizinc --solver gecode`): every Gecode constraint has a dedicated decomposition pipeline, and the resulting global-constraint nodes are recognized as *cut nodes* by the `wl-nc`/`wl-nec` kernels, which is what makes those features discriminative.
+
+**Non-Gecode FlatZinc still works**, with two caveats:
+
+- Constraints the parser does not know (solver-specific builtins, e.g. `chuffed_array_int_minimum`) are decomposed generically as a single global node connected to all its arguments, with node type `<constraint_name>_global`.
+- Such `<name>_global` nodes **are treated as cut nodes** by the WL kernels (the `_global` suffix is part of the cut-node pattern), so `wl-nc`/`wl-nec` cut-based features and the `(<source_type>, <target_type>)` co-occurrence counts are produced for them as well.
+
+Since the decomposition pipelines differ per solver, features extracted from the same model compiled for different solvers are **not comparable** — train and test on FlatZinc compiled for the same solver. For the richest structural features, prefer Gecode.
+
+---
+
 ## Performance Comparison
 
 On the MiniZinc Challenge corpus (160 `.fzn` instances, `wl-nc k=1`):

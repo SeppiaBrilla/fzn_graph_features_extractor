@@ -104,6 +104,13 @@ pub fn load_graph(filepath: &str) -> std::io::Result<Graph> {
                     globals_count += 1;
                     Node::with_var(new_label, t, idx, var_type, var_dom_size)
                 }
+                t if t.ends_with("_global") => {
+                    // unknown/solver-specific global (type suffixed by the parser)
+                    let global_name = &t[..t.len() - "_global".len()];
+                    let new_label = format!("{}{}", global_name, globals_count);
+                    globals_count += 1;
+                    Node::with_var(new_label, t, idx, var_type, var_dom_size)
+                }
                 t => Node::with_var(label, t, idx, var_type, var_dom_size),
             };
             graph.add_node(node);

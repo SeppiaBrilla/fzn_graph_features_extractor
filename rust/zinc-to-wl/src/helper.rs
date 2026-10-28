@@ -96,6 +96,13 @@ static CUT_SET: std::sync::OnceLock<std::collections::HashSet<TypeId>> = std::sy
 
 #[inline]
 pub fn is_cut_node_id(t: TypeId) -> bool {
+    // The `_global` suffix marks unknown/solver-specific globals (e.g.
+    // `chuffed_array_int_minimum_global`), created by
+    // `decompose_unknown_global` for non-gecode FlatZinc. They behave as
+    // cut nodes even though they are not in the static tables.
+    if t.as_str().ends_with("_global") {
+        return true;
+    }
     CUT_SET
         .get_or_init(|| {
             GLOBAL_NODES
@@ -105,6 +112,12 @@ pub fn is_cut_node_id(t: TypeId) -> bool {
                 .collect()
         })
         .contains(&t)
+}
+
+/// Unknown/solver-specific global (node type suffixed `_global` by the parser).
+#[allow(dead_code)]
+pub fn is_unknown_global(node_type: &str) -> bool {
+    node_type.ends_with("_global")
 }
 
 /// `tailored_hash`: fold `hash(c, h)` over sorted neighbor colors.

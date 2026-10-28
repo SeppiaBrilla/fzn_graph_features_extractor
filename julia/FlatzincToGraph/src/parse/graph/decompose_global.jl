@@ -70,7 +70,7 @@ decompose_global_gecode_int_pow(args::Vector{Union{Vector{Node},Node}}, graph::G
 decompose_fzn_at_most_int(args::Vector{Union{Vector{Node},Node}}, graph::Graph) = decompose_generic_global(args, graph, "fzn_at_most_int", :at_most_node)
 decompose_global_fzn_at_least_int(args::Vector{Union{Vector{Node},Node}}, graph::Graph) = decompose_generic_global(args, graph, "fzn_at_least_int", :at_least_node)
 decompose_global_fzn_increasing_bool(args::Vector{Union{Vector{Node},Node}}, graph::Graph) = decompose_generic_global(args, graph, "fzn_increasing_bool", :increasing_bool_node)
-decompose_unknown_global(args::Vector{Union{Vector{Node},Node}}, graph::Graph, global_name::String) = decompose_generic_global(args, graph, global_name, Symbol(global_name))
+decompose_unknown_global(args::Vector{Union{Vector{Node},Node}}, graph::Graph, global_name::String) = decompose_generic_global(args, graph, global_name, Symbol(global_name * "_global"))
 
 export decompose_global_cumulatives, decompose_global_int_element, decompose_global_int_lin_eq_imp,
     decompose_global_array_int_maximum, decompose_global_schedule_unary, decompose_global_int_le_imp,
